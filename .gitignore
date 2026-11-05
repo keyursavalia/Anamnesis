@@ -34,10 +34,9 @@ fastlane/Preview.html
 fastlane/screenshots/**/*.png
 fastlane/test_output
 
-# ─── Claude Code: personal/local only ───────────────────
-# (.claude/settings.json, commands, agents, hooks and .mcp.json ARE committed)
-.claude/settings.local.json
-.claude/*.log
+# ─── Claude Code: private, kept local, never push ───────
+.claude/
+.mcp.json
 CLAUDE.local.md
 
 # ─── Project: private planning docs (kept local, never push) ─
