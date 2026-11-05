@@ -1,0 +1,88 @@
+# ─── macOS ───────────────────────────────────────────────
+.DS_Store
+.AppleDouble
+.LSOverride
+._*
+.Spotlight-V100
+.Trashes
+
+# ─── Xcode: per-user / generated state ──────────────────
+xcuserdata/
+*.xcuserstate
+*.xcscmblueprint
+*.xccheckout
+*.moved-aside
+*.hmap
+*.ipa
+*.dSYM
+*.dSYM.zip
+*.xcarchive
+DerivedData/
+build/
+.build/
+.swiftpm/
+Packages/*/.build/
+Packages/*/.swiftpm/
+*.playground/playground.xcworkspace/xcuserdata/
+timeline.xctimeline
+
+# ─── Dependency managers (not used yet; ignore if added) ─
+Pods/
+Carthage/Build/
+fastlane/report.xml
+fastlane/Preview.html
+fastlane/screenshots/**/*.png
+fastlane/test_output
+
+# ─── Claude Code: personal/local only ───────────────────
+# (.claude/settings.json, commands, agents, hooks and .mcp.json ARE committed)
+.claude/settings.local.json
+.claude/*.log
+CLAUDE.local.md
+
+# ─── Project: private planning docs (kept local, never push) ─
+CLAUDE.md
+docs/
+
+# ─── Project: private test material (never push) ────────
+# Copyrighted reel audio, hand-made ground-truth poems, probe/eval exports, run sheets
+TestAssets/
+TestResults/
+
+# Any captured / spooled / test audio or video, anywhere in the repo
+*.caf
+*.wav
+*.aif
+*.aiff
+*.m4a
+*.mp3
+*.aac
+*.flac
+*.ogg
+*.opus
+*.mov
+*.mp4
+*.m4v
+
+# Device diagnostics pulled from the phone (jetsam/crash reports, logs)
+*.ips
+*.crash
+*.log
+
+# ─── Secrets & credentials ──────────────────────────────
+.env
+.env.*
+*.pem
+*.p12
+*.p8
+*.mobileprovision
+*.provisionprofile
+Secrets.swift
+GoogleService-Info.plist
+
+# ─── Editors / misc ─────────────────────────────────────
+.idea/
+.vscode/
+*.swp
+*~
+*.tmp
