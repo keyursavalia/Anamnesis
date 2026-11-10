@@ -6,6 +6,10 @@
 	objectVersion = 90;
 	objects = {
 
+/* Begin PBXBuildFile section */
+		3CCD3D6E30A294FA00DF3FA6 /* AnamnesisKit in Frameworks */ = {isa = PBXBuildFile; productRef = 3CCD3D6D30A294FA00DF3FA6 /* AnamnesisKit */; };
+/* End PBXBuildFile section */
+
 /* Begin PBXFileReference section */
 		000000000000000000000120 /* Anamnesis.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = Anamnesis.app; sourceTree = BUILT_PRODUCTS_DIR; };
 /* End PBXFileReference section */
@@ -22,6 +26,7 @@
 		000000000000000130000000 /* Frameworks */ = {
 			isa = PBXFrameworksBuildPhase;
 			files = (
+				3CCD3D6E30A294FA00DF3FA6 /* AnamnesisKit in Frameworks */,
 			);
 		};
 /* End PBXFrameworksBuildPhase section */
@@ -60,6 +65,9 @@
 				000000000000000000000010 /* Anamnesis */,
 			);
 			name = Anamnesis;
+			packageProductDependencies = (
+				3CCD3D6D30A294FA00DF3FA6 /* AnamnesisKit */,
+			);
 			productName = MyApp;
 			productReference = 000000000000000000000120 /* Anamnesis.app */;
 			productType = "com.apple.product-type.application";
@@ -71,7 +79,7 @@
 			isa = PBXProject;
 			attributes = {
 				BuildIndependentTargetsInParallel = 1;
-				LastSwiftUpdateCheck = 2630;
+				LastSwiftUpdateCheck = 2700;
 				LastUpgradeCheck = 2700;
 				TargetAttributes = {
 					000000000000000100000000 = {
@@ -88,6 +96,9 @@
 			);
 			mainGroup = 000000000000000000000001;
 			minimizedProjectReferenceProxies = 1;
+			packageReferences = (
+				3CCD3D6C30A294FA00DF3FA6 /* XCLocalSwiftPackageReference "Packages/AnamnesisKit" */,
+			);
 			preferredProjectObjectVersion = 90;
 			productRefGroup = 000000000000000000000020 /* Products */;
 			projectDirPath = "";
@@ -347,6 +358,20 @@
 			defaultConfigurationName = Release;
 		};
 /* End XCConfigurationList section */
+
+/* Begin XCLocalSwiftPackageReference section */
+		3CCD3D6C30A294FA00DF3FA6 /* XCLocalSwiftPackageReference "Packages/AnamnesisKit" */ = {
+			isa = XCLocalSwiftPackageReference;
+			relativePath = Packages/AnamnesisKit;
+		};
+/* End XCLocalSwiftPackageReference section */
+
+/* Begin XCSwiftPackageProductDependency section */
+		3CCD3D6D30A294FA00DF3FA6 /* AnamnesisKit */ = {
+			isa = XCSwiftPackageProductDependency;
+			productName = AnamnesisKit;
+		};
+/* End XCSwiftPackageProductDependency section */
 	};
 	rootObject = 000000000000000000000000 /* Project object */;
 }

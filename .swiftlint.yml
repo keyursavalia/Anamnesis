@@ -1,0 +1,4 @@
+excluded:
+  - Packages/AnamnesisKit/.build
+  - build
+  - DerivedData
