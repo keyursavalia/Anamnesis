@@ -6,6 +6,7 @@ struct LabHomeView: View {
     enum Route: Hashable {
         case environment
         case sckProbe
+        case sessions
     }
 
     @Environment(AppEnvironment.self) private var environment
@@ -22,12 +23,15 @@ struct LabHomeView: View {
                 Text("SCK Probe (device only: no ScreenCaptureKit in this SDK)")
                     .foregroundStyle(.secondary)
                 #endif
+                NavigationLink("Spool sessions", value: Route.sessions)
+                    .accessibilityHint("Lists spooled capture sessions for playback, export and deletion")
             }
             .navigationTitle("Lab")
             .navigationDestination(for: Route.self) { route in
                 switch route {
                 case .environment: EnvironmentView()
                 case .sckProbe: sckProbe
+                case .sessions: SpoolSessionsView()
                 }
             }
         }
