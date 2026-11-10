@@ -3,7 +3,8 @@ import CoreMedia
 import Foundation
 
 /// Per-buffer analysis shared by both capture backends (spec 001 §4.5):
-/// format detection → PTS → zero-copy PCM access → peak/RMS → `DiagnosticsRecorder`.
+/// format detection → PTS → zero-copy PCM access → peak/RMS → `DiagnosticsRecorder`, and (spec 002) a copy
+/// into the spool writer's bounded inbox while the PCM is still mapped.
 ///
 /// Real-time rules (CONVENTIONS §3): no allocation in the steady state (the buffer list is preallocated and the
 /// last format is cached), no logging, no disk I/O, and the `CMSampleBuffer` is not retained past `ingest`.
@@ -20,6 +21,7 @@ public final class AudioIngestPipeline {
 
     private let recorder: DiagnosticsRecorder
     private let rawDump: RawDumpSink?
+    private let spool: SegmentedSpoolWriter?
     /// The dump starts at the first non-silent buffer: runs begin with the operator still in our app, where
     /// capture is digital silence (F-007), so a dump from t = 0 would hold nothing useful.
     private var rawDumpArmed = false
@@ -35,9 +37,13 @@ public final class AudioIngestPipeline {
     private var reportedErrors: Set<Int> = []
 
     /// `maxChannels` bounds the preallocated buffer list (one entry per channel when non-interleaved).
-    public init(recorder: DiagnosticsRecorder, rawDump: RawDumpSink? = nil, maxChannels: Int = 8) {
+    public init(
+        recorder: DiagnosticsRecorder, rawDump: RawDumpSink? = nil, spool: SegmentedSpoolWriter? = nil,
+        maxChannels: Int = 8
+    ) {
         self.recorder = recorder
         self.rawDump = rawDump
+        self.spool = spool
         self.maxChannels = maxChannels
         bufferList = AudioBufferList.allocate(maximumBuffers: maxChannels)
         bufferListCapacity = AudioBufferList.sizeInBytes(maximumBuffers: maxChannels)
@@ -63,7 +69,10 @@ public final class AudioIngestPipeline {
             reportOnce(.unsupportedSampleFormat, "unsupported PCM layout: \(format)")
             return
         }
-        guard let level = measure(sampleBuffer, format: format) else {
+        let frames = CMSampleBufferGetNumSamples(sampleBuffer)
+        let pts = CMSampleBufferGetPresentationTimeStamp(sampleBuffer)
+        let ptsSec = pts.isValid ? pts.seconds : nil
+        guard let level = measure(sampleBuffer, format: format, frames: frames, pts: ptsSec) else {
             recorder.recordBuffer(type)
             return
         }
@@ -71,10 +80,7 @@ public final class AudioIngestPipeline {
             if !rawDumpArmed, !level.isSilent() { rawDumpArmed = true }
             if rawDumpArmed { rawDump.append(sampleBuffer) }
         }
-        let pts = CMSampleBufferGetPresentationTimeStamp(sampleBuffer)
-        recorder.recordAudio(
-            type, format: format, frameCount: CMSampleBufferGetNumSamples(sampleBuffer),
-            presentationTimeSec: pts.isValid ? pts.seconds : nil, level: level)
+        recorder.recordAudio(type, format: format, frameCount: frames, presentationTimeSec: ptsSec, level: level)
     }
 
     // MARK: - Private
@@ -95,7 +101,10 @@ public final class AudioIngestPipeline {
         return format
     }
 
-    private func measure(_ sampleBuffer: CMSampleBuffer, format: AudioFormatInfo) -> LevelMeasurement? {
+    /// Also hands the mapped PCM to the spool (everything from t = 0, so its duration matches wall-clock).
+    private func measure(
+        _ sampleBuffer: CMSampleBuffer, format: AudioFormatInfo, frames: Int, pts: Double?
+    ) -> LevelMeasurement? {
         guard let listSize = listSize(for: sampleBuffer, format: format) else { return nil }
         var blockBuffer: CMBlockBuffer?
         let status = CMSampleBufferGetAudioBufferListWithRetainedBlockBuffer(
@@ -124,6 +133,7 @@ public final class AudioIngestPipeline {
                 return nil
             }
         }
+        spool?.enqueue(bufferList.unsafePointer, format: format, frames: frames, pts: pts)
         return accumulator.measurement
     }
 
