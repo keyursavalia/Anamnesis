@@ -3,7 +3,8 @@ import AnamnesisKit
 import Foundation
 import ScreenCaptureKit
 
-// SPIKE: Probe A — ScreenCaptureKit in the host app (spec 001 §4.2). Measures; does not spool or transcribe.
+// SPIKE: Probe A — ScreenCaptureKit in the host app (spec 001 §4.2). Measures and spools (spec 002); does not
+// transcribe.
 @Observable
 final class SCKCaptureBackend: SystemAudioCapturing {
     /// Knobs the operator varies between runs; recorded in the report's `config`.
@@ -20,6 +21,8 @@ final class SCKCaptureBackend: SystemAudioCapturing {
         var width = 2
         var height = 2
         var rawDump = false
+        /// Write the session to the segmented spool (spec 002).
+        var spool = true
     }
 
     private struct Session {
@@ -27,6 +30,8 @@ final class SCKCaptureBackend: SystemAudioCapturing {
         let output: SCKStreamOutput
         let recorder: DiagnosticsRecorder
         let rawDump: RawDumpSink?
+        let spool: SegmentedSpoolWriter?
+        let context: CaptureContextObserver
         let flushTimer: DispatchSourceTimer
         let directory: URL
         let reportURL: URL
@@ -37,10 +42,13 @@ final class SCKCaptureBackend: SystemAudioCapturing {
     private(set) var isCapturing = false
     /// Live counters for the Lab UI; nil when idle.
     private(set) var recorder: DiagnosticsRecorder?
+    /// Live spool progress for the Lab UI; nil when idle or not spooling.
+    private(set) var spool: SegmentedSpoolWriter?
 
     private let eventSink: AsyncStream<CaptureEvent>.Continuation
     private let coordinator = SCKPickerCoordinator()
     private let store: ProbeRunStore
+    private let spoolDirectory: SpoolDirectory?
     private let log: AppLog
     private var settings = Settings()
     private var awaitingPicker = false
@@ -48,8 +56,9 @@ final class SCKCaptureBackend: SystemAudioCapturing {
     private var isStoppingByRequest = false
     private var session: Session?
 
-    init(store: ProbeRunStore, log: AppLog) {
+    init(store: ProbeRunStore, spoolDirectory: SpoolDirectory?, log: AppLog) {
         self.store = store
+        self.spoolDirectory = spoolDirectory
         self.log = log
         (events, eventSink) = AsyncStream.makeStream(of: CaptureEvent.self)
         coordinator.onOutcome = { [weak self] outcome in self?.handle(outcome) }
@@ -85,6 +94,17 @@ final class SCKCaptureBackend: SystemAudioCapturing {
                 domain: error.domain, code: error.code, description: error.localizedDescription)
         }
         return await finish(session, stop: ProbeReport.Stop(reason: .user))
+    }
+
+    /// DEBUG *Simulate crash* (spec 002 R10): abandon the spool without finalizing, then stop as usual so the
+    /// session is left for recovery while the probe report is still written.
+    func simulateSpoolCrash() async -> ProbeRun? {
+        guard let session else { return nil }
+        if let spool = session.spool {
+            await Task.detached { spool.abandon() }.value
+            log.notice("spool abandoned (simulated crash) session=\(spool.session.id)")
+        }
+        return await stop()
     }
 
     // MARK: - Picker outcomes
@@ -123,21 +143,25 @@ final class SCKCaptureBackend: SystemAudioCapturing {
             eventSink.yield(.startFailed(CaptureError.storage(error.localizedDescription).localizedDescription))
             return
         }
+        let spool = settings.spool ? makeSpool(label: label) : nil
+        var config = reportConfig(styleUsed: styleUsed, filter: filter)
+        config.spoolSessionID = spool?.session.id
         let recorder = DiagnosticsRecorder(
-            runLabel: label, backend: backend, config: reportConfig(styleUsed: styleUsed, filter: filter),
-            device: .current(), app: .current())
+            runLabel: label, backend: backend, config: config, device: .current(), app: .current())
         let rawDump = settings.rawDump ? try? RawDumpSink(directory: directory) : nil
         let output = SCKStreamOutput(
-            pipeline: AudioIngestPipeline(recorder: recorder, rawDump: rawDump),
+            pipeline: AudioIngestPipeline(recorder: recorder, rawDump: rawDump, spool: spool),
             onStop: { [weak self] stop in Task { @MainActor in await self?.handleStreamStopped(stop) } })
         let stream = SCStream(filter: filter, configuration: streamConfiguration(), delegate: output)
         let reportURL = store.reportURL(in: directory, label: label, backend: backend)
         let session = Session(
-            stream: stream, output: output, recorder: recorder, rawDump: rawDump,
+            stream: stream, output: output, recorder: recorder, rawDump: rawDump, spool: spool,
+            context: CaptureContextObserver(recorder: recorder),
             flushTimer: Self.makeFlushTimer(recorder: recorder, store: store, reportURL: reportURL),
             directory: directory, reportURL: reportURL)
         self.session = session
         self.recorder = recorder
+        self.spool = spool
         do {
             try stream.addStreamOutput(output, type: .audio, sampleHandlerQueue: output.sampleQueue)
             if settings.addScreenOutput {
@@ -172,23 +196,43 @@ final class SCKCaptureBackend: SystemAudioCapturing {
         self.session = nil
         isCapturing = false
         recorder = nil
+        spool = nil
         session.flushTimer.cancel()
         let report = session.recorder.finish(stop)
-        // `finish` waits for pending file writes; keep that off the main actor.
-        let rawDumpURL = await Task.detached { session.rawDump?.finish() }.value
+        // Both `finish` calls wait for pending file writes; keep that off the main actor. An abandoned spool
+        // returns its unfinished manifest and writes nothing.
+        let (rawDumpURL, spoolManifest) = await Task.detached {
+            (session.rawDump?.finish(), session.spool?.finish())
+        }.value
         do {
             try store.write(report, to: session.reportURL)
         } catch {
             log.error("report write failed: \(error.localizedDescription)")
         }
-        log.notice("capture finished reason=\(stop.reason.rawValue) audioSec=\(report.counters.audioSecondsTotal)")
+        log.notice("capture finished reason=\(stop.reason.rawValue) audioSec=\(report.counters.audioSecondsTotal)"
+                   + " spoolSec=\(spoolManifest?.durationSec ?? 0)")
         let run = ProbeRun(directory: session.directory, reportURL: session.reportURL, rawDumpURL: rawDumpURL,
-                           report: report)
+                           report: report, spoolManifest: spoolManifest)
         eventSink.yield(.stopped(run))
         return run
     }
 
     // MARK: - Configuration
+
+    /// A spool failure must not block the probe: the run continues without spooling and says so in the log.
+    private func makeSpool(label: String) -> SegmentedSpoolWriter? {
+        guard let spoolDirectory else { return nil }
+        do {
+            let id = SpoolDirectory.makeSessionID(createdAt: Date())
+            let writer = try SegmentedSpoolWriter(
+                session: spoolDirectory.makeSession(id: id), label: label.isEmpty ? nil : label)
+            log.notice("spool session=\(id)")
+            return writer
+        } catch {
+            log.error("spool unavailable: \(error.localizedDescription)")
+            return nil
+        }
+    }
 
     private func streamConfiguration() -> SCStreamConfiguration {
         let configuration = SCStreamConfiguration()
