@@ -1,4 +1,5 @@
 #if DEBUG
+import AnamnesisKit
 import SwiftUI
 
 // SPIKE: Lab → Environment (spec 000 R7).

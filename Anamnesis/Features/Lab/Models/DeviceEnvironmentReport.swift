@@ -1,24 +1,9 @@
 #if DEBUG
+import AnamnesisKit
 import Foundation
 
 // SPIKE: Lab environment report (spec 000 R6/R7). Exported as JSON to `TestResults/R-<id>_env.json`.
 nonisolated struct DeviceEnvironmentReport: Codable, Sendable {
-    struct Device: Codable, Sendable {
-        var modelIdentifier: String
-        var osVersion: String
-        var osBuild: String
-        var thermalState: String
-        var lowPowerModeEnabled: Bool
-        var physicalMemoryBytes: UInt64
-        var isSimulator: Bool
-    }
-
-    struct App: Codable, Sendable {
-        var bundleID: String
-        var version: String
-        var build: String
-    }
-
     struct LocaleInfo: Codable, Sendable {
         var current: String
         var preferredLanguages: [String]
@@ -48,8 +33,8 @@ nonisolated struct DeviceEnvironmentReport: Codable, Sendable {
     }
 
     var generatedAt: Date
-    var device: Device
-    var app: App
+    var device: DeviceSnapshot
+    var app: BundleSnapshot
     var locale: LocaleInfo
     var capabilities: Capabilities
 
