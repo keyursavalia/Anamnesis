@@ -28,11 +28,13 @@ public struct ProbeReport: Sendable, Equatable, Codable {
         public var filterContentRect: String?
         public var outputsAdded: [String]
         public var backgroundModes: [String]
+        /// Spool session written alongside this run (spec 002), if spooling was on.
+        public var spoolSessionID: String?
 
         public init(
             requestedSampleRate: Int? = nil, requestedChannels: Int? = nil, width: Int? = nil, height: Int? = nil,
             styleUsed: String? = nil, filterStyle: String? = nil, filterContentRect: String? = nil,
-            outputsAdded: [String] = [], backgroundModes: [String] = []
+            outputsAdded: [String] = [], backgroundModes: [String] = [], spoolSessionID: String? = nil
         ) {
             self.requestedSampleRate = requestedSampleRate
             self.requestedChannels = requestedChannels
@@ -43,6 +45,7 @@ public struct ProbeReport: Sendable, Equatable, Codable {
             self.filterContentRect = filterContentRect
             self.outputsAdded = outputsAdded
             self.backgroundModes = backgroundModes
+            self.spoolSessionID = spoolSessionID
         }
     }
 
@@ -54,9 +57,19 @@ public struct ProbeReport: Sendable, Equatable, Codable {
     }
 
     public struct PTSGaps: Sendable, Equatable, Codable {
+        public static let maxEvents = 32
+
         public var count = 0
         public var maxMs = 0.0
         public var totalMs = 0.0
+        /// The first `maxEvents` gaps with when they happened; optional so older reports still decode.
+        public var events: [GapEvent]?
+    }
+
+    public struct GapEvent: Sendable, Equatable, Codable {
+        /// Seconds since the run started (wall clock), comparable with `timeline` and `markers`.
+        public var tSec: Double
+        public var durationMs: Double
     }
 
     public struct ErrorRecord: Sendable, Equatable, Codable {
