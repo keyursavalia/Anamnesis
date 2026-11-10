@@ -10,6 +10,7 @@ final class SCKProbeViewModel {
     var settings = SCKCaptureBackend.Settings()
     var noteText = ""
     private(set) var live: ProbeReport?
+    private(set) var liveSpool: SegmentedSpoolWriter.Progress?
     private(set) var liveLevel: ProbeReport.TimelineSecond?
     private(set) var lastRun: ProbeRun?
     private(set) var runs: [ProbeRun] = []
@@ -19,13 +20,18 @@ final class SCKProbeViewModel {
     let backend: SCKCaptureBackend?
     private let store: ProbeRunStore?
     private let fileLog: FileLog?
+    private let sessions: SessionIngestor?
     private var eventsTask: Task<Void, Never>?
 
     init(environment: AppEnvironment) {
         fileLog = environment.fileLog
+        sessions = environment.sessions
         let store = try? ProbeRunStore.appDefault()
         self.store = store
-        backend = store.map { SCKCaptureBackend(store: $0, log: environment.log(.capture)) }
+        backend = store.map {
+            SCKCaptureBackend(
+                store: $0, spoolDirectory: environment.sessions?.directory, log: environment.log(.capture))
+        }
         if store == nil { lastError = "Application Support is not writable; probe runs cannot be saved." }
         refreshRuns()
         // Observed for the model's lifetime (the app session), not a view's, so no event is lost on navigation.
@@ -53,6 +59,14 @@ final class SCKProbeViewModel {
         refreshRuns()
     }
 
+    /// DEBUG: abandon the spool mid-capture, stop, and run recovery as the next launch would.
+    func simulateCrash() async {
+        if let run = await backend?.simulateSpoolCrash() { lastRun = run }
+        refreshRuns()
+        append("spool abandoned (simulated crash); recovering")
+        await sessions?.refresh(activeSessionIDs: [])
+    }
+
     func mark(_ kind: ProbeReport.MarkerKind) {
         let text = kind == .note ? noteText.trimmingCharacters(in: .whitespaces) : nil
         backend?.addMarker(kind, text: text?.isEmpty == true ? nil : text)
@@ -69,6 +83,7 @@ final class SCKProbeViewModel {
         while !Task.isCancelled {
             live = backend?.recorder?.snapshot(includingSeries: false)
             liveLevel = backend?.recorder?.liveLevel()
+            liveSpool = backend?.spool?.progressSnapshot()
             try? await Task.sleep(for: .milliseconds(500))
         }
     }
@@ -107,6 +122,7 @@ final class SCKProbeViewModel {
             }
             append("stopped: \(run.report.stop?.reason.rawValue ?? "?")")
             refreshRuns()
+            Task { await sessions?.refresh(activeSessionIDs: []) }
         }
     }
 
