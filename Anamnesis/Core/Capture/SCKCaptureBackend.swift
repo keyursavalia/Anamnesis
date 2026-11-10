@@ -44,6 +44,8 @@ final class SCKCaptureBackend: SystemAudioCapturing {
     private let log: AppLog
     private var settings = Settings()
     private var awaitingPicker = false
+    /// Set while our own Stop is in flight: SCK may report -3817 for it, which must not be recorded as a system stop.
+    private var isStoppingByRequest = false
     private var session: Session?
 
     init(store: ProbeRunStore, log: AppLog) {
@@ -72,7 +74,9 @@ final class SCKCaptureBackend: SystemAudioCapturing {
     }
 
     func stop() async -> ProbeRun? {
-        guard let session else { return nil }
+        guard let session, !isStoppingByRequest else { return nil }
+        isStoppingByRequest = true
+        defer { isStoppingByRequest = false }
         do {
             try await session.stream.stopCapture()
         } catch {
@@ -158,7 +162,7 @@ final class SCKCaptureBackend: SystemAudioCapturing {
 
     /// The system ended the stream (user stopped via the indicator, background mode missing, …).
     private func handleStreamStopped(_ stop: ProbeReport.Stop) async {
-        guard let session else { return }
+        guard let session, !isStoppingByRequest else { return }
         log.error("stream stopped by system: \(stop.errorDescription ?? stop.reason.rawValue)")
         _ = await finish(session, stop: stop)
     }
