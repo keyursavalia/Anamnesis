@@ -18,6 +18,8 @@ nonisolated struct ProbeRun: Sendable, Identifiable {
     let reportURL: URL
     let rawDumpURL: URL?
     let report: ProbeReport
+    /// Final manifest of the spool written during this run; nil when spooling was off or for runs listed from disk.
+    var spoolManifest: SpoolManifest?
 }
 
 nonisolated enum CaptureEvent: Sendable {
