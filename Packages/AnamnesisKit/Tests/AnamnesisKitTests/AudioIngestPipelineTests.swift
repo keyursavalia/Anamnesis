@@ -74,6 +74,8 @@ struct AudioIngestPipelineTests {
         let gaps = recorder.snapshot().counters.ptsGaps
         #expect(gaps.count == 1)
         #expect(abs(gaps.maxMs - 200) < 0.01)
+        #expect(gaps.events?.count == 1)
+        #expect((gaps.events?.first?.durationMs ?? 0) > 199)
     }
 
     @Test("a mid-stream format change is counted")
