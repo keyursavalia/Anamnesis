@@ -91,7 +91,7 @@ public final class DiagnosticsRecorder: Sendable {
                 state.report.firstBuffer = .init(
                     type: type, format: format, framesPerBuffer: frameCount, timeToFirstBufferSec: tSec)
             }
-            trackFormatAndGaps(&state, format: format, frameCount: frameCount, pts: presentationTimeSec)
+            trackFormatAndGaps(&state, format: format, frameCount: frameCount, pts: presentationTimeSec, tSec: tSec)
             addToTimeline(&state, tSec: tSec, frameCount: frameCount, level: level, silent: isSilent)
         }
     }
@@ -193,7 +193,9 @@ public final class DiagnosticsRecorder: Sendable {
         now().timeIntervalSince(startedAt)
     }
 
-    private func trackFormatAndGaps(_ state: inout State, format: AudioFormatInfo, frameCount: Int, pts: Double?) {
+    private func trackFormatAndGaps(
+        _ state: inout State, format: AudioFormatInfo, frameCount: Int, pts: Double?, tSec: Double
+    ) {
         if let last = state.lastFormat, last != format {
             state.report.counters.formatChanges += 1
             // A new format restarts the timestamp sequence; don't report the switch as a gap.
@@ -206,6 +208,12 @@ public final class DiagnosticsRecorder: Sendable {
                 state.report.counters.ptsGaps.count += 1
                 state.report.counters.ptsGaps.maxMs = max(state.report.counters.ptsGaps.maxMs, gap * 1_000)
                 state.report.counters.ptsGaps.totalMs += gap * 1_000
+                // Bounded, and rare (a gap is an anomaly), so the occasional append is acceptable here.
+                var events = state.report.counters.ptsGaps.events ?? []
+                if events.count < ProbeReport.PTSGaps.maxEvents {
+                    events.append(.init(tSec: tSec, durationMs: gap * 1_000))
+                    state.report.counters.ptsGaps.events = events
+                }
             }
         }
         state.expectedNextPTS = pts.flatMap { pts in
