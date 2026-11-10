@@ -13,7 +13,7 @@ struct SCKProbeView: View {
                 .disabled(model.isCapturing)
             controlSection
             if let live = model.live, model.isCapturing {
-                SCKLiveSection(report: live, level: model.liveLevel)
+                SCKLiveSection(report: live, level: model.liveLevel, spool: model.liveSpool)
                 markerSection
             }
             if let run = model.lastRun { RunSection(title: "Last run", run: run) }
@@ -39,6 +39,12 @@ struct SCKProbeView: View {
             if model.isCapturing {
                 Button("Stop capture", systemImage: "stop.circle.fill", role: .destructive) {
                     Task { await model.stop() }
+                }
+                if model.liveSpool != nil {
+                    Button("Simulate crash (abandon spool)", systemImage: "bolt.trianglebadge.exclamationmark") {
+                        Task { await model.simulateCrash() }
+                    }
+                    .accessibilityHint("Stops capture without finalizing the spool, then runs recovery")
                 }
             } else {
                 Button("Start capture", systemImage: "record.circle") { model.start() }
@@ -99,6 +105,7 @@ private struct SCKProbeSettingsSection: View {
             }
             Toggle("Add .screen output", isOn: $settings.addScreenOutput)
             Toggle("Save first 20 s of sound (raw.caf)", isOn: $settings.rawDump)
+            Toggle("Spool to segments (spec 002)", isOn: $settings.spool)
         }
     }
 }
@@ -106,10 +113,17 @@ private struct SCKProbeSettingsSection: View {
 private struct SCKLiveSection: View {
     let report: ProbeReport
     let level: ProbeReport.TimelineSecond?
+    let spool: SegmentedSpoolWriter.Progress?
 
     var body: some View {
         let counters = report.counters
         Section("Live") {
+            if let spool {
+                LabeledContent("Spooled", value: String(format: "%.1f s · %d seg", Double(spool.framesWritten)
+                    / SpoolFormat.standard.sampleRate, spool.segmentCount))
+                LabeledContent("Spool drops · clipped · errors", value: "\(spool.counters.dropsQueueFull) · "
+                               + "\(spool.counters.clippedSamples) · \(spool.counters.writeErrors)")
+            }
             LabeledContent("Sharing", value: "\(report.config.filterStyle ?? "?") · "
                            + "\(report.config.filterContentRect ?? "?")")
             LabeledContent("Elapsed", value: Duration.seconds(report.durationSec)
@@ -138,6 +152,10 @@ private struct RunSection: View {
     var body: some View {
         Section(title) {
             RunSummary(run: run)
+            if let manifest = run.spoolManifest {
+                LabeledContent("Spool", value: String(format: "%.1f s", manifest.durationSec)
+                               + " · \(manifest.segments.count) seg · \(manifest.state.rawValue)")
+            }
             ShareLink(item: run.reportURL) { Label("Export report", systemImage: "square.and.arrow.up") }
             if let raw = run.rawDumpURL {
                 ShareLink(item: raw) { Label("Export raw.caf", systemImage: "waveform") }
