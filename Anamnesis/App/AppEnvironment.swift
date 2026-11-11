@@ -54,6 +54,18 @@ final class AppEnvironment {
         #endif
     }
 
+    #if DEBUG
+    /// One per app session so a running job survives navigating away from the Lab screen.
+    @ObservationIgnored private var transcriptionLabModel: TranscriptionLabViewModel?
+
+    func transcriptionLab() -> TranscriptionLabViewModel {
+        if let transcriptionLabModel { return transcriptionLabModel }
+        let model = TranscriptionLabViewModel(environment: self)
+        transcriptionLabModel = model
+        return model
+    }
+    #endif
+
     #if DEBUG && canImport(ScreenCaptureKit)
     /// One probe per app session: a capture keeps running while the operator navigates the Lab,
     /// and only one observer is ever registered with the system picker.
