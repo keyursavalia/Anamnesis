@@ -3,7 +3,7 @@ import os
 
 /// Writes to `os.Logger` and mirrors to `FileLog` so the owner can export logs without Console.app (CONVENTIONS §6).
 /// Messages are our own state descriptions (never transcript text), so they are logged as public.
-struct AppLog: Sendable {
+nonisolated struct AppLog: Sendable {
     let category: LogCategory
     let fileLog: FileLog?
     private let logger: Logger
