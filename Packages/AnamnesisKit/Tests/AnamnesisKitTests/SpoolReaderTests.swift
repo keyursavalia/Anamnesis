@@ -62,4 +62,27 @@ struct SpoolReaderTests {
         #expect(reader.segments.map(\.info.index) == [2])
         #expect(reader.totalFrames == 4_000)
     }
+
+    @Test("pulls a multi-segment session with a gap-free sample clock", arguments: [4_000, 6_000, 16_000])
+    func gapFreeClock(capacity: Int) throws {
+        let source = SyntheticPCM.pattern(count: 40_000)
+        let session = try writeSession(source)
+        var cursor = try SpoolReader(session: session).makeCursor()
+        var samples: [Int16] = []
+        var expectedFrame = 0
+        while true {
+            // A fresh buffer per pull, as the analyzer input sequence does.
+            let buffer = try #require(AVAudioPCMBuffer(pcmFormat: cursor.processingFormat,
+                                                       frameCapacity: AVAudioFrameCount(capacity)))
+            guard let chunk = try cursor.read(into: buffer) else { break }
+            #expect(chunk.timelineFrame == expectedFrame)
+            #expect(abs(chunk.startOffsetSec - Double(expectedFrame) / 16_000) < 1e-9)
+            expectedFrame += Int(buffer.frameLength)
+            samples += UnsafeBufferPointer(start: buffer.int16ChannelData?[0], count: Int(buffer.frameLength))
+        }
+        #expect(samples == source)
+        // Reading past the end stays at the end.
+        let buffer = try #require(AVAudioPCMBuffer(pcmFormat: cursor.processingFormat, frameCapacity: 100))
+        #expect(try cursor.read(into: buffer) == nil)
+    }
 }
