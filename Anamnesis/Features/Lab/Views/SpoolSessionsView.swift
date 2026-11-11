@@ -65,6 +65,7 @@ private struct SpoolSessionDetailView: View {
     @Environment(\.dismiss) private var dismiss
     @State private var player = SegmentPlayer()
     @State private var deleteError: String?
+    @State private var showsTranscription = false
 
     var body: some View {
         List {
@@ -75,6 +76,13 @@ private struct SpoolSessionDetailView: View {
                 Text("No readable manifest.").foregroundStyle(.orange)
             }
             Section {
+                Button("Transcribe", systemImage: "text.bubble") {
+                    player.stop()
+                    environment.transcriptionLab().transcribe(session: summary.session)
+                    showsTranscription = true
+                }
+                .disabled(environment.isCapturing || summary.manifest == nil)
+                .accessibilityHint("Transcribes this session on device as one timeline")
                 ShareLink(items: exportURLs) { Label("Export manifest + segments", systemImage: "square.and.arrow.up") }
                 Button("Delete session", systemImage: "trash", role: .destructive, action: delete)
                     .disabled(environment.isCapturing)
@@ -82,6 +90,9 @@ private struct SpoolSessionDetailView: View {
             }
         }
         .navigationTitle(summary.manifest?.label ?? summary.id)
+        .navigationDestination(isPresented: $showsTranscription) {
+            TranscriptionLabView(model: environment.transcriptionLab())
+        }
         .onDisappear { player.stop() }
     }
 
