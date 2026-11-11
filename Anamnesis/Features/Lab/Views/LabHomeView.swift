@@ -7,6 +7,7 @@ struct LabHomeView: View {
         case environment
         case sckProbe
         case sessions
+        case transcription
     }
 
     @Environment(AppEnvironment.self) private var environment
@@ -25,6 +26,8 @@ struct LabHomeView: View {
                 #endif
                 NavigationLink("Spool sessions", value: Route.sessions)
                     .accessibilityHint("Lists spooled capture sessions for playback, export and deletion")
+                NavigationLink("Transcription", value: Route.transcription)
+                    .accessibilityHint("Installs the speech model and transcribes imported audio on device")
             }
             .navigationTitle("Lab")
             .navigationDestination(for: Route.self) { route in
@@ -32,6 +35,7 @@ struct LabHomeView: View {
                 case .environment: EnvironmentView()
                 case .sckProbe: sckProbe
                 case .sessions: SpoolSessionsView()
+                case .transcription: TranscriptionLabView(model: environment.transcriptionLab())
                 }
             }
         }
