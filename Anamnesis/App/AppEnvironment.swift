@@ -57,11 +57,19 @@ final class AppEnvironment {
     #if DEBUG
     /// One per app session so a running job survives navigating away from the Lab screen.
     @ObservationIgnored private var transcriptionLabModel: TranscriptionLabViewModel?
+    @ObservationIgnored private var evalModel: EvalViewModel?
 
     func transcriptionLab() -> TranscriptionLabViewModel {
         if let transcriptionLabModel { return transcriptionLabModel }
         let model = TranscriptionLabViewModel(environment: self)
         transcriptionLabModel = model
+        return model
+    }
+
+    func evalLab() -> EvalViewModel {
+        if let evalModel { return evalModel }
+        let model = EvalViewModel(environment: self)
+        evalModel = model
         return model
     }
     #endif
