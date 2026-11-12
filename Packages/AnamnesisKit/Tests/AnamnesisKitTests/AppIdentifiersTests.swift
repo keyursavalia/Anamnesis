@@ -12,5 +12,7 @@ struct AppIdentifiersTests {
         #expect(AppIdentifiers.controlsBundleID == "com.keyurdipakbhaisavalia.Anamnesis.controls")
         #expect(AppIdentifiers.DarwinNotification.sessionFinished
             == "com.keyurdipakbhaisavalia.Anamnesis.session.finished")
+        #expect(AppIdentifiers.urlScheme == "anamnesis")
+        #expect(AppIdentifiers.ControlKind.capture == "com.keyurdipakbhaisavalia.Anamnesis.control.capture")
     }
 }
