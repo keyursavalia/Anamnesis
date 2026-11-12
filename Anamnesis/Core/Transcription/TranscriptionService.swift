@@ -115,6 +115,7 @@ actor TranscriptionService {
         try Task.checkCancellation()
         let collected = try await segments.value
         let speechRegions = try await regions?.value
+        if let speechRegions { log.notice("detector regions=\(speechRegions.count)") }
         let wallSec = Self.seconds(ContinuousClock.now - started)
         memory.cancel()
         let metrics = TranscriptionMetrics(audioSec: audioSec, wallSec: wallSec, assetStatus: assetStatus.name,
@@ -191,7 +192,9 @@ actor TranscriptionService {
         -> Task<[SpeechRegion], any Error> {
         Task {
             var regions: [SpeechRegion] = []
-            for try await result in detector.results where result.isFinal {
+            // Not filtered on `isFinal`; overlapping results are merged when coverage is computed. On iOS 27 (iPad)
+            // the detector reported no results at all, filtered or not (F-026).
+            for try await result in detector.results {
                 let region = SpeechRegion(startSec: result.range.start.seconds, endSec: result.range.end.seconds,
                                           speechDetected: result.speechDetected)
                 regions.append(region)
