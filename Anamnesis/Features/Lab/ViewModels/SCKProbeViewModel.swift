@@ -45,10 +45,10 @@ final class SCKProbeViewModel {
     var isCapturing: Bool { backend?.isCapturing ?? false }
     var isPickerAvailable: Bool { backend?.isPickerAvailable ?? false }
 
-    func start() {
+    func start(settle: Duration = .zero) {
         lastError = nil
         do {
-            try backend?.requestStart(settings)
+            try backend?.requestStart(settings, settle: settle)
         } catch {
             lastError = error.localizedDescription
         }
@@ -72,6 +72,12 @@ final class SCKProbeViewModel {
         backend?.addMarker(kind, text: text?.isEmpty == true ? nil : text)
         append("marker \(kind.rawValue)\(text.map { ": \($0)" } ?? "")")
         if kind == .note { noteText = "" }
+    }
+
+    /// Adds a note marker without touching the operator's note field (spec 005 trigger timings).
+    func addNote(_ text: String) {
+        backend?.addMarker(.note, text: text)
+        append("marker note: \(text)")
     }
 
     func refreshRuns() {
