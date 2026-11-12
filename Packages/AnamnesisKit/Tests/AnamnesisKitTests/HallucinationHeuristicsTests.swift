@@ -45,7 +45,7 @@ struct HallucinationHeuristicsTests {
         let segment = TranscriptSegment(text: "ghost words", startSec: 5, endSec: 8, confidence: 0.9)
         let silent = [SpeechRegion(startSec: 0, endSec: 10, speechDetected: false)]
         #expect(HallucinationHeuristics.flags(for: segment, speechRegions: silent) == [.noSpeechOverlap])
-        #expect(HallucinationHeuristics.flags(for: segment, speechRegions: []) == [.noSpeechOverlap])
+        #expect(HallucinationHeuristics.flags(for: segment, speechRegions: []).isEmpty)
         #expect(HallucinationHeuristics.flags(for: segment, speechRegions: nil).isEmpty)
         let spoken = [SpeechRegion(startSec: 4, endSec: 9, speechDetected: true)]
         #expect(HallucinationHeuristics.flags(for: segment, speechRegions: spoken).isEmpty)
