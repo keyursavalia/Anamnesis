@@ -18,13 +18,16 @@ final class SCKPickerCoordinator: NSObject, SCContentSharingPickerObserver {
     }
 
     var onOutcome: ((Outcome) -> Void)?
+    /// Short identity for the log: two coordinators would both receive every selection (F-032, H1).
+    let id = String(UUID().uuidString.prefix(4))
     private let picker = SCContentSharingPicker.shared
     private var isRegistered = false
 
     var isAvailable: Bool { picker.isAvailable }
 
-    /// Marks the picker active (required for any picker UI, including Control Center's) and hides mic/camera
-    /// controls: we capture app audio only (CLAUDE.md mission).
+    /// Registers the observer and hides mic/camera controls: we capture app audio only (CLAUDE.md mission).
+    /// `isActive` is set per presentation instead (F-032, H2): a picker left active forever stopped presenting
+    /// from the background after its first use.
     func activate() {
         guard !isRegistered else { return }
         var configuration = picker.defaultConfiguration
@@ -32,8 +35,12 @@ final class SCKPickerCoordinator: NSObject, SCContentSharingPickerObserver {
         configuration.showsCameraControl = false
         picker.defaultConfiguration = configuration
         picker.add(self)
-        picker.isActive = true
         isRegistered = true
+    }
+
+    /// Ends a presentation cycle: after a cancel or failure, and when the stream it produced stops.
+    func endPresentation() {
+        picker.isActive = false
     }
 
     func deactivate() {
@@ -43,7 +50,18 @@ final class SCKPickerCoordinator: NSObject, SCContentSharingPickerObserver {
         isRegistered = false
     }
 
-    func present(_ style: Style) {
+    /// `settle`: wait between activating and presenting (H3: presenting milliseconds after activation failed on
+    /// a cold launch).
+    func present(_ style: Style, settle: Duration = .zero) {
+        picker.isActive = true
+        guard settle > .zero else { return show(style) }
+        Task {
+            try? await Task.sleep(for: settle)
+            show(style)
+        }
+    }
+
+    private func show(_ style: Style) {
         switch style {
         case .systemDefault: picker.present()
         case .display: picker.present(using: .display)
