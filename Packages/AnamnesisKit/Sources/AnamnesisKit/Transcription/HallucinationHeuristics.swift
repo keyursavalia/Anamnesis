@@ -32,13 +32,15 @@ public struct HallucinationConfig: Sendable, Equatable, Codable {
 }
 
 public enum HallucinationHeuristics {
-    /// `speechRegions` nil means the detector was off: the overlap check is skipped, not failed.
+    /// `speechRegions` nil or empty means the detector was off or reported nothing: the overlap check is
+    /// skipped, not failed.
     public static func flags(for segment: TranscriptSegment, speechRegions: [SpeechRegion]?,
                              config: HallucinationConfig = HallucinationConfig()) -> Set<HallucinationFlag> {
         var flags: Set<HallucinationFlag> = []
         if hasRepeatedNGramLoop(tokens(of: segment.text), config: config) { flags.insert(.repeatedNGramLoop) }
         if let confidence = segment.confidence, confidence < config.minConfidence { flags.insert(.lowConfidence) }
-        if let speechRegions, speechCoverage(of: segment, in: speechRegions) < config.minSpeechCoverage {
+        if let speechRegions, !speechRegions.isEmpty,
+           speechCoverage(of: segment, in: speechRegions) < config.minSpeechCoverage {
             flags.insert(.noSpeechOverlap)
         }
         return flags
