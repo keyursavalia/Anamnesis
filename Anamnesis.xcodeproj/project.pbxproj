@@ -8,10 +8,40 @@
 
 /* Begin PBXBuildFile section */
 		3CCD3D6E30A294FA00DF3FA6 /* AnamnesisKit in Frameworks */ = {isa = PBXBuildFile; productRef = 3CCD3D6D30A294FA00DF3FA6 /* AnamnesisKit */; };
+		3CCD3DC630A59B6600DF3FA6 /* WidgetKit.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 3CCD3DC530A59B6500DF3FA6 /* WidgetKit.framework */; };
+		3CCD3DC830A59B6600DF3FA6 /* SwiftUI.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 3CCD3DC730A59B6600DF3FA6 /* SwiftUI.framework */; };
+		3CCD3DD530A59B6800DF3FA6 /* AnamnesisControlsExtension.appex in Embed Foundation Extensions */ = {isa = PBXBuildFile; fileRef = 3CCD3DC330A59B6500DF3FA6 /* AnamnesisControlsExtension.appex */; settings = {ATTRIBUTES = (RemoveHeadersOnCopy, ); }; };
+		3CCD3DDC30A59BC300DF3FA6 /* AnamnesisKit in Frameworks */ = {isa = PBXBuildFile; productRef = 3CCD3DDB30A59BC300DF3FA6 /* AnamnesisKit */; };
 /* End PBXBuildFile section */
+
+/* Begin PBXContainerItemProxy section */
+		3CCD3DD330A59B6800DF3FA6 /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = 000000000000000000000000 /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = 3CCD3DC230A59B6500DF3FA6;
+			remoteInfo = AnamnesisControlsExtension;
+		};
+/* End PBXContainerItemProxy section */
+
+/* Begin PBXCopyFilesBuildPhase section */
+		3CCD3DDA30A59B6800DF3FA6 /* Embed Foundation Extensions */ = {
+			isa = PBXCopyFilesBuildPhase;
+			dstPath = "";
+			dstSubfolder = PlugIns;
+			files = (
+				3CCD3DD530A59B6800DF3FA6 /* AnamnesisControlsExtension.appex in Embed Foundation Extensions */,
+			);
+			name = "Embed Foundation Extensions";
+		};
+/* End PBXCopyFilesBuildPhase section */
 
 /* Begin PBXFileReference section */
 		000000000000000000000120 /* Anamnesis.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = Anamnesis.app; sourceTree = BUILT_PRODUCTS_DIR; };
+		3CCD3DC330A59B6500DF3FA6 /* AnamnesisControlsExtension.appex */ = {isa = PBXFileReference; explicitFileType = "wrapper.app-extension"; includeInIndex = 0; path = AnamnesisControlsExtension.appex; sourceTree = BUILT_PRODUCTS_DIR; };
+		3CCD3DC530A59B6500DF3FA6 /* WidgetKit.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = WidgetKit.framework; path = System/Library/Frameworks/WidgetKit.framework; sourceTree = SDKROOT; };
+		3CCD3DC730A59B6600DF3FA6 /* SwiftUI.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = SwiftUI.framework; path = System/Library/Frameworks/SwiftUI.framework; sourceTree = SDKROOT; };
+		3CCD3DE630A5C2FB00DF3FA6 /* AnamnesisControlsExtension.entitlements */ = {isa = PBXFileReference; lastKnownFileType = text.plist.entitlements; path = AnamnesisControlsExtension.entitlements; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFileSystemSynchronizedBuildFileExceptionSet section */
@@ -19,6 +49,20 @@
 			isa = PBXFileSystemSynchronizedBuildFileExceptionSet;
 			membershipExceptions = (
 				Info.plist,
+			);
+			target = 000000000000000100000000 /* Anamnesis */;
+		};
+		3CCD3DD930A59B6800DF3FA6 /* Exceptions for "AnamnesisControls" folder in "AnamnesisControlsExtension" target */ = {
+			isa = PBXFileSystemSynchronizedBuildFileExceptionSet;
+			membershipExceptions = (
+				Info.plist,
+			);
+			target = 3CCD3DC230A59B6500DF3FA6 /* AnamnesisControlsExtension */;
+		};
+		3CCD3DE430A5A07400DF3FA6 /* Exceptions for "AnamnesisControls" folder in "Anamnesis" target */ = {
+			isa = PBXFileSystemSynchronizedBuildFileExceptionSet;
+			membershipExceptions = (
+				OpenCaptureIntent.swift,
 			);
 			target = 000000000000000100000000 /* Anamnesis */;
 		};
@@ -33,6 +77,15 @@
 			path = Anamnesis;
 			sourceTree = "<group>";
 		};
+		3CCD3DC930A59B6600DF3FA6 /* AnamnesisControls */ = {
+			isa = PBXFileSystemSynchronizedRootGroup;
+			exceptions = (
+				3CCD3DE430A5A07400DF3FA6 /* Exceptions for "AnamnesisControls" folder in "Anamnesis" target */,
+				3CCD3DD930A59B6800DF3FA6 /* Exceptions for "AnamnesisControls" folder in "AnamnesisControlsExtension" target */,
+			);
+			path = AnamnesisControls;
+			sourceTree = "<group>";
+		};
 /* End PBXFileSystemSynchronizedRootGroup section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -42,13 +95,24 @@
 				3CCD3D6E30A294FA00DF3FA6 /* AnamnesisKit in Frameworks */,
 			);
 		};
+		3CCD3DC030A59B6500DF3FA6 /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			files = (
+				3CCD3DC830A59B6600DF3FA6 /* SwiftUI.framework in Frameworks */,
+				3CCD3DC630A59B6600DF3FA6 /* WidgetKit.framework in Frameworks */,
+				3CCD3DDC30A59BC300DF3FA6 /* AnamnesisKit in Frameworks */,
+			);
+		};
 /* End PBXFrameworksBuildPhase section */
 
 /* Begin PBXGroup section */
 		000000000000000000000001 = {
 			isa = PBXGroup;
 			children = (
+				3CCD3DE630A5C2FB00DF3FA6 /* AnamnesisControlsExtension.entitlements */,
 				000000000000000000000010 /* Anamnesis */,
+				3CCD3DC930A59B6600DF3FA6 /* AnamnesisControls */,
+				3CCD3DC430A59B6500DF3FA6 /* Frameworks */,
 				000000000000000000000020 /* Products */,
 			);
 			sourceTree = "<group>";
@@ -57,8 +121,18 @@
 			isa = PBXGroup;
 			children = (
 				000000000000000000000120 /* Anamnesis.app */,
+				3CCD3DC330A59B6500DF3FA6 /* AnamnesisControlsExtension.appex */,
 			);
 			name = Products;
+			sourceTree = "<group>";
+		};
+		3CCD3DC430A59B6500DF3FA6 /* Frameworks */ = {
+			isa = PBXGroup;
+			children = (
+				3CCD3DC530A59B6500DF3FA6 /* WidgetKit.framework */,
+				3CCD3DC730A59B6600DF3FA6 /* SwiftUI.framework */,
+			);
+			name = Frameworks;
 			sourceTree = "<group>";
 		};
 /* End PBXGroup section */
@@ -71,8 +145,12 @@
 				000000000000000120000000 /* Sources */,
 				000000000000000130000000 /* Frameworks */,
 				000000000000000140000000 /* Resources */,
+				3CCD3DDA30A59B6800DF3FA6 /* Embed Foundation Extensions */,
 			);
 			buildRules = (
+			);
+			dependencies = (
+				3CCD3DD430A59B6800DF3FA6 /* PBXTargetDependency */,
 			);
 			fileSystemSynchronizedGroups = (
 				000000000000000000000010 /* Anamnesis */,
@@ -84,6 +162,27 @@
 			productName = MyApp;
 			productReference = 000000000000000000000120 /* Anamnesis.app */;
 			productType = "com.apple.product-type.application";
+		};
+		3CCD3DC230A59B6500DF3FA6 /* AnamnesisControlsExtension */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = 3CCD3DD630A59B6800DF3FA6 /* Build configuration list for PBXNativeTarget "AnamnesisControlsExtension" */;
+			buildPhases = (
+				3CCD3DBF30A59B6500DF3FA6 /* Sources */,
+				3CCD3DC030A59B6500DF3FA6 /* Frameworks */,
+				3CCD3DC130A59B6500DF3FA6 /* Resources */,
+			);
+			buildRules = (
+			);
+			fileSystemSynchronizedGroups = (
+				3CCD3DC930A59B6600DF3FA6 /* AnamnesisControls */,
+			);
+			name = AnamnesisControlsExtension;
+			packageProductDependencies = (
+				3CCD3DDB30A59BC300DF3FA6 /* AnamnesisKit */,
+			);
+			productName = AnamnesisControlsExtension;
+			productReference = 3CCD3DC330A59B6500DF3FA6 /* AnamnesisControlsExtension.appex */;
+			productType = "com.apple.product-type.app-extension";
 		};
 /* End PBXNativeTarget section */
 
@@ -97,6 +196,9 @@
 				TargetAttributes = {
 					000000000000000100000000 = {
 						CreatedOnToolsVersion = 26.3;
+					};
+					3CCD3DC230A59B6500DF3FA6 = {
+						CreatedOnToolsVersion = 27.0;
 					};
 				};
 			};
@@ -118,12 +220,18 @@
 			projectRoot = "";
 			targets = (
 				000000000000000100000000 /* Anamnesis */,
+				3CCD3DC230A59B6500DF3FA6 /* AnamnesisControlsExtension */,
 			);
 		};
 /* End PBXProject section */
 
 /* Begin PBXResourcesBuildPhase section */
 		000000000000000140000000 /* Resources */ = {
+			isa = PBXResourcesBuildPhase;
+			files = (
+			);
+		};
+		3CCD3DC130A59B6500DF3FA6 /* Resources */ = {
 			isa = PBXResourcesBuildPhase;
 			files = (
 			);
@@ -136,7 +244,20 @@
 			files = (
 			);
 		};
+		3CCD3DBF30A59B6500DF3FA6 /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			files = (
+			);
+		};
 /* End PBXSourcesBuildPhase section */
+
+/* Begin PBXTargetDependency section */
+		3CCD3DD430A59B6800DF3FA6 /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = 3CCD3DC230A59B6500DF3FA6 /* AnamnesisControlsExtension */;
+			targetProxy = 3CCD3DD330A59B6800DF3FA6 /* PBXContainerItemProxy */;
+		};
+/* End PBXTargetDependency section */
 
 /* Begin XCBuildConfiguration section */
 		000000000000000011000000 /* Debug configuration for PBXProject "Anamnesis" */ = {
@@ -274,6 +395,7 @@
 		000000000000000111000000 /* Debug configuration for PBXNativeTarget "Anamnesis" */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
+				CODE_SIGN_ENTITLEMENTS = Anamnesis/Anamnesis.entitlements;
 				CODE_SIGN_STYLE = Automatic;
 				CURRENT_PROJECT_VERSION = 1;
 				DEVELOPMENT_TEAM = DW9QSX99UM;
@@ -315,6 +437,7 @@
 		000000000000000112000000 /* Release configuration for PBXNativeTarget "Anamnesis" */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
+				CODE_SIGN_ENTITLEMENTS = Anamnesis/Anamnesis.entitlements;
 				CODE_SIGN_STYLE = Automatic;
 				CURRENT_PROJECT_VERSION = 1;
 				DEVELOPMENT_TEAM = DW9QSX99UM;
@@ -353,6 +476,73 @@
 			};
 			name = Release;
 		};
+		3CCD3DD730A59B6800DF3FA6 /* Debug configuration for PBXNativeTarget "AnamnesisControlsExtension" */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
+				ASSETCATALOG_COMPILER_WIDGET_BACKGROUND_COLOR_NAME = WidgetBackground;
+				CODE_SIGN_ENTITLEMENTS = AnamnesisControlsExtension.entitlements;
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = 1;
+				DEVELOPMENT_TEAM = DW9QSX99UM;
+				GENERATE_INFOPLIST_FILE = YES;
+				INFOPLIST_FILE = AnamnesisControls/Info.plist;
+				INFOPLIST_KEY_CFBundleDisplayName = AnamnesisControls;
+				INFOPLIST_KEY_NSHumanReadableCopyright = "";
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+					"@executable_path/../../Frameworks",
+				);
+				MARKETING_VERSION = 1.0;
+				PRODUCT_BUNDLE_IDENTIFIER = com.keyurdipakbhaisavalia.Anamnesis.controls;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				REGISTER_APP_GROUPS = YES;
+				SDKROOT = iphoneos;
+				SKIP_INSTALL = YES;
+				STRING_CATALOG_GENERATE_SYMBOLS = YES;
+				SWIFT_APPROACHABLE_CONCURRENCY = YES;
+				SWIFT_EMIT_LOC_STRINGS = YES;
+				SWIFT_UPCOMING_FEATURE_MEMBER_IMPORT_VISIBILITY = YES;
+				SWIFT_VERSION = 6.0;
+				TARGETED_DEVICE_FAMILY = "1,2";
+			};
+			name = Debug;
+		};
+		3CCD3DD830A59B6800DF3FA6 /* Release configuration for PBXNativeTarget "AnamnesisControlsExtension" */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
+				ASSETCATALOG_COMPILER_WIDGET_BACKGROUND_COLOR_NAME = WidgetBackground;
+				CODE_SIGN_ENTITLEMENTS = AnamnesisControlsExtension.entitlements;
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = 1;
+				DEVELOPMENT_TEAM = DW9QSX99UM;
+				GENERATE_INFOPLIST_FILE = YES;
+				INFOPLIST_FILE = AnamnesisControls/Info.plist;
+				INFOPLIST_KEY_CFBundleDisplayName = AnamnesisControls;
+				INFOPLIST_KEY_NSHumanReadableCopyright = "";
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+					"@executable_path/../../Frameworks",
+				);
+				MARKETING_VERSION = 1.0;
+				PRODUCT_BUNDLE_IDENTIFIER = com.keyurdipakbhaisavalia.Anamnesis.controls;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				REGISTER_APP_GROUPS = YES;
+				SDKROOT = iphoneos;
+				SKIP_INSTALL = YES;
+				STRING_CATALOG_GENERATE_SYMBOLS = YES;
+				SWIFT_APPROACHABLE_CONCURRENCY = YES;
+				SWIFT_EMIT_LOC_STRINGS = YES;
+				SWIFT_UPCOMING_FEATURE_MEMBER_IMPORT_VISIBILITY = YES;
+				SWIFT_VERSION = 6.0;
+				TARGETED_DEVICE_FAMILY = "1,2";
+				VALIDATE_PRODUCT = YES;
+			};
+			name = Release;
+		};
 /* End XCBuildConfiguration section */
 
 /* Begin XCConfigurationList section */
@@ -372,6 +562,14 @@
 			);
 			defaultConfigurationName = Release;
 		};
+		3CCD3DD630A59B6800DF3FA6 /* Build configuration list for PBXNativeTarget "AnamnesisControlsExtension" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				3CCD3DD730A59B6800DF3FA6 /* Debug configuration for PBXNativeTarget "AnamnesisControlsExtension" */,
+				3CCD3DD830A59B6800DF3FA6 /* Release configuration for PBXNativeTarget "AnamnesisControlsExtension" */,
+			);
+			defaultConfigurationName = Release;
+		};
 /* End XCConfigurationList section */
 
 /* Begin XCLocalSwiftPackageReference section */
@@ -384,6 +582,11 @@
 /* Begin XCSwiftPackageProductDependency section */
 		3CCD3D6D30A294FA00DF3FA6 /* AnamnesisKit */ = {
 			isa = XCSwiftPackageProductDependency;
+			productName = AnamnesisKit;
+		};
+		3CCD3DDB30A59BC300DF3FA6 /* AnamnesisKit */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = 3CCD3D6C30A294FA00DF3FA6 /* XCLocalSwiftPackageReference "Packages/AnamnesisKit" */;
 			productName = AnamnesisKit;
 		};
 /* End XCSwiftPackageProductDependency section */
