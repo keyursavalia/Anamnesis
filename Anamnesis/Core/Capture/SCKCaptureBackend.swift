@@ -2,6 +2,7 @@
 import AnamnesisKit
 import Foundation
 import ScreenCaptureKit
+import UIKit
 
 // SPIKE: Probe A — ScreenCaptureKit in the host app (spec 001 §4.2). Measures and spools (spec 002); does not
 // transcribe.
@@ -55,6 +56,13 @@ final class SCKCaptureBackend: SystemAudioCapturing {
     /// Set while our own Stop is in flight: SCK may report -3817 for it, which must not be recorded as a system stop.
     private var isStoppingByRequest = false
     private var session: Session?
+    /// Set synchronously when a filter starts a stream: `session` is only set inside the async start, and SCK can
+    /// deliver two filters for one confirm (F-032), which started two streams that both failed with -3802.
+    private var isStartingStream = false
+    /// Keeps the process running while the system picker is up (F-035): after a cold background launch the app is
+    /// suspended once the intent returns, so the user's confirm sat undelivered until the next wake-up and the
+    /// late start failed with -3802.
+    private var pickerBackgroundTask = UIBackgroundTaskIdentifier.invalid
 
     init(store: ProbeRunStore, spoolDirectory: SpoolDirectory?, log: AppLog) {
         self.store = store
@@ -68,13 +76,14 @@ final class SCKCaptureBackend: SystemAudioCapturing {
     var isPickerAvailable: Bool { coordinator.isAvailable }
 
     /// Presents the system picker; capture starts when it returns a filter.
-    func requestStart(_ settings: Settings) throws {
-        guard session == nil else { throw CaptureError.alreadyCapturing }
+    func requestStart(_ settings: Settings, settle: Duration = .zero) throws {
+        guard session == nil, !isStartingStream else { throw CaptureError.alreadyCapturing }
         guard coordinator.isAvailable else { throw CaptureError.pickerUnavailable }
         self.settings = settings
         awaitingPicker = true
-        coordinator.present(settings.style)
-        log.notice("picker presented style=\(settings.style.rawValue)")
+        beginPickerBackgroundTask()
+        coordinator.present(settings.style, settle: settle)
+        log.notice("picker presented style=\(settings.style.rawValue) coordinator=\(coordinator.id) settle=\(settle)")
         eventSink.yield(.pickerPresented(style: settings.style.rawValue))
     }
 
@@ -114,19 +123,32 @@ final class SCKCaptureBackend: SystemAudioCapturing {
         case .filter(let filter, let forExistingStream):
             let unsolicited = !awaitingPicker
             awaitingPicker = false
-            log.notice("filter received unsolicited=\(unsolicited) existingStream=\(forExistingStream) "
+            log.notice("filter received coordinator=\(coordinator.id) unsolicited=\(unsolicited) "
+                       + "existingStream=\(forExistingStream) "
                        + "style=\(filter.style.rawValue) rect=\(filter.contentRect)")
             eventSink.yield(.filterReceived(unsolicited: unsolicited, forExistingStream: forExistingStream))
             // iOS cannot retarget a running stream (`updateContentFilter` is unavailable), so ignore it.
-            guard session == nil else { return }
+            guard session == nil, !isStartingStream else {
+                log.notice("filter ignored: a stream is already running or starting")
+                return
+            }
+            isStartingStream = true
             let style = unsolicited ? "systemUI" : settings.style.rawValue
-            Task { await startStream(filter: filter, styleUsed: style) }
+            Task {
+                await startStream(filter: filter, styleUsed: style)
+                isStartingStream = false
+                endPickerBackgroundTask()
+            }
         case .cancelled:
             awaitingPicker = false
-            log.notice("picker cancelled")
+            coordinator.endPresentation()
+            endPickerBackgroundTask()
+            log.notice("picker cancelled coordinator=\(coordinator.id)")
             eventSink.yield(.pickerCancelled)
         case .failed(let message):
             awaitingPicker = false
+            coordinator.endPresentation()
+            endPickerBackgroundTask()
             log.error("picker failed: \(message)")
             eventSink.yield(.pickerFailed(message))
         }
@@ -193,6 +215,7 @@ final class SCKCaptureBackend: SystemAudioCapturing {
 
     private func finish(_ session: Session, stop: ProbeReport.Stop) async -> ProbeRun? {
         guard self.session?.directory == session.directory else { return nil }
+        coordinator.endPresentation()
         self.session = nil
         isCapturing = false
         recorder = nil
@@ -280,6 +303,28 @@ final class SCKCaptureBackend: SystemAudioCapturing {
             try? store.write(recorder.snapshot(), to: reportURL)
         }
         return timer
+    }
+}
+
+// MARK: - Picker background time (F-035)
+
+extension SCKCaptureBackend {
+    fileprivate func beginPickerBackgroundTask() {
+        guard pickerBackgroundTask == .invalid else { return }
+        pickerBackgroundTask = UIApplication.shared.beginBackgroundTask(withName: "SCK picker") { [weak self] in
+            self?.log.error("picker background task expired before the picker returned")
+            self?.endPickerBackgroundTask()
+        }
+        let remaining = UIApplication.shared.backgroundTimeRemaining
+        // DBL_MAX while in the foreground.
+        let remainingText = remaining > 1_000_000 ? "unlimited (foreground)" : String(format: "%.0f s", remaining)
+        log.notice("picker background task began remaining=\(remainingText)")
+    }
+
+    fileprivate func endPickerBackgroundTask() {
+        guard pickerBackgroundTask != .invalid else { return }
+        UIApplication.shared.endBackgroundTask(pickerBackgroundTask)
+        pickerBackgroundTask = .invalid
     }
 }
 #endif
