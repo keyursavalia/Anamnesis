@@ -81,6 +81,15 @@ public final class FileLog: Sendable {
         }
     }
 
+    /// Empties both files (spec 013 *Delete all data*). The open handle stays valid for the next line.
+    public func clear() {
+        state.withLock { state in
+            try? FileManager.default.removeItem(at: previousURL)
+            try? state.handle.truncate(atOffset: 0)
+            state.currentSize = 0
+        }
+    }
+
     /// Writes the retained log to `url` atomically (e.g. a temp file handed to `ShareLink`).
     public func export(to url: URL) throws {
         try Data(snapshot().utf8).write(to: url, options: .atomic)
