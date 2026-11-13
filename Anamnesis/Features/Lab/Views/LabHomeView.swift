@@ -10,6 +10,7 @@ struct LabHomeView: View {
         case transcription
         case testB
         case capture
+        case librarySamples
     }
 
     @Environment(AppEnvironment.self) private var environment
@@ -35,6 +36,15 @@ struct LabHomeView: View {
                     .accessibilityHint("Installs the speech model and transcribes imported audio on device")
                 NavigationLink("Test B", value: Route.testB)
                     .accessibilityHint("Runs the transcript-quality corpus and scores word error rate")
+                NavigationLink("Library samples", value: Route.librarySamples)
+                    .accessibilityHint("Adds made-up poems and times the Library search")
+                if let transcripts = environment.transcripts {
+                    Section {
+                        Toggle("Keep audio after transcription", isOn: Bindable(transcripts).keepsAudio)
+                    } footer: {
+                        Text("Captures: off follows D-010 (audio deleted once transcribed), as in Release.")
+                    }
+                }
             }
             .navigationTitle("Lab")
             .navigationDestination(for: Route.self) { route in
@@ -45,6 +55,7 @@ struct LabHomeView: View {
                 case .transcription: TranscriptionLabView(model: environment.transcriptionLab())
                 case .testB: EvalView(model: environment.evalLab())
                 case .capture: capture
+                case .librarySamples: LibrarySamplesView()
                 }
             }
         }
