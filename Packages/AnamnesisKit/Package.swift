@@ -1,7 +1,8 @@
 // swift-tools-version: 6.4
 import PackageDescription
 
-// Pure logic shared by the app and (later) its extensions. No UIKit/SwiftUI/Speech/ScreenCaptureKit here.
+// Pure logic shared by the app and its extensions. No UIKit/SwiftUI/Speech/ScreenCaptureKit here; SwiftData is
+// allowed for the library schema (spec 009, D-028), which only the host app opens.
 // macOS is declared only so `swift test` runs on the Mac; every source must stay platform-neutral.
 let swiftSettings: [SwiftSetting] = [
     // Capture callbacks arrive on arbitrary queues, so nothing here may default to MainActor (D-012).
