@@ -14,8 +14,8 @@ struct AnamnesisApp: App {
                 // Covers launch too: the first phase change is to `.active`.
                 .onChange(of: scenePhase, initial: true) { _, phase in
                     guard phase == .active else { return }
-                    environment.markActive()
                     environment.drainLaunchMailbox()
+                    environment.reloadControl()
                     Task { await environment.refreshSessions() }
                 }
                 .onOpenURL { environment.open($0) }
