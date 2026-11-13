@@ -115,4 +115,16 @@ struct FileLogTests {
         try log.export(to: target)
         #expect(try String(contentsOf: target, encoding: .utf8) == log.snapshot())
     }
+
+    @Test("clear empties both files and the next line is the only one")
+    func clear() throws {
+        let log = try FileLog(directory: directory, capacityBytes: 1024)
+        for index in 0..<40 { log.append("line \(index)", category: .ui) }
+        log.clear()
+        #expect(log.snapshot().isEmpty)
+        log.append("after", category: .ui)
+        #expect(lines(log).count == 1)
+        #expect(lines(log).first?.hasSuffix("after") == true)
+        #expect(try diskUsage() < 100)
+    }
 }
