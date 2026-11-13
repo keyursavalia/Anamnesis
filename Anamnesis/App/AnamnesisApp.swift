@@ -1,3 +1,4 @@
+import SwiftData
 import SwiftUI
 
 @main
@@ -19,6 +20,7 @@ struct AnamnesisApp: App {
                     Task { await environment.refreshSessions() }
                 }
                 .onOpenURL { environment.open($0) }
+                .modelContainer(environment.library.container)
         }
     }
 }
