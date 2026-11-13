@@ -5,12 +5,14 @@ import UIKit
 
 /// The process's one capture path (spec 008 R1), in Release and DEBUG. Owns the only `SCKCaptureBackend`, hence the
 /// only picker observer (F-032); the control intent, the Captures screen and the Lab all drive it.
-/// Also keeps the *Capture poem* control in step and writes each session's `capture.json` (R8).
+/// Also keeps the *Capture poem* control and the Live Activity (spec 007) in step and writes each session's
+/// `capture.json` (R8).
 @Observable
 final class CaptureController {
     private(set) var lastError: String?
 
     private let log: AppLog
+    let activity: CaptureActivityController
     /// `AsyncStream` has one consumer, so the backend's events are read here once and fanned out.
     @ObservationIgnored private var subscribers: [UUID: AsyncStream<CaptureEvent>.Continuation] = [:]
     @ObservationIgnored private var eventsTask: Task<Void, Never>?
@@ -28,6 +30,7 @@ final class CaptureController {
 
     init(spoolDirectory: SpoolDirectory?, log: AppLog) {
         self.log = log
+        activity = CaptureActivityController(log: AppLog(category: .ui, fileLog: log.fileLog))
         // Off by default; `batteryLevel` reads −1 until it is enabled.
         UIDevice.current.isBatteryMonitoringEnabled = true
         #if canImport(ScreenCaptureKit)
@@ -103,6 +106,7 @@ final class CaptureController {
 
     private func handle(_ event: CaptureEvent) {
         syncControl(with: event)
+        syncActivity(with: event)
         switch event {
         case .started: recordStart()
         case .stopped(let run): recordStop(reason: run.report.stop?.reason.rawValue ?? "unknown")
@@ -120,6 +124,24 @@ final class CaptureController {
             CaptureControlSync.publish(CaptureControlState(isCapturing: true, startedAt: Date()), log: log)
         case .pickerCancelled, .pickerFailed, .startFailed, .stopped:
             CaptureControlSync.publish(.idle, log: log)
+        case .pickerPresented, .filterReceived:
+            break
+        }
+    }
+
+    /// Spec 007 R3: at most three ActivityKit calls per capture (R8).
+    private func syncActivity(with event: CaptureEvent) {
+        switch event {
+        case .started:
+            activity.captureStarted(at: Date(), sessionID: activeSpoolSessionID)
+        case .pickerCancelled:
+            activity.endAll(reason: "picker cancelled")
+        case .pickerFailed, .startFailed:
+            activity.endAll(reason: "failed")
+        case .stopped(let run):
+            activity.captureStopped(
+                sessionID: run.spoolManifest?.sessionID ?? run.report.config.spoolSessionID,
+                capturedSeconds: run.spoolManifest?.durationSec ?? run.report.counters.audioSecondsTotal)
         case .pickerPresented, .filterReceived:
             break
         }
