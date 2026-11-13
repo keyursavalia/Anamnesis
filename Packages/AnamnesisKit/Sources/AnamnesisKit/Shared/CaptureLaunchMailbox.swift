@@ -8,6 +8,8 @@ public final class CaptureLaunchMailbox: Sendable {
         case start(CaptureLaunchLink)
         /// The control was switched off.
         case stop
+        /// The Live Activity's Stop (spec 007 R4): stops a running capture and, unlike `stop`, never starts one.
+        case stopIfCapturing
     }
 
     public static let shared = CaptureLaunchMailbox()
