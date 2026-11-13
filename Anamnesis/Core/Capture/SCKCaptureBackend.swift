@@ -4,8 +4,8 @@ import Foundation
 import ScreenCaptureKit
 import UIKit
 
-// SPIKE: Probe A — ScreenCaptureKit in the host app (spec 001 §4.2). Measures and spools (spec 002); does not
-// transcribe.
+// ScreenCaptureKit in the host app (spec 001 §4.2, D-017); production since spec 008, owned by `CaptureController`.
+// Measures and spools (spec 002); does not transcribe.
 @Observable
 final class SCKCaptureBackend: SystemAudioCapturing {
     /// Knobs the operator varies between runs; recorded in the report's `config`.
@@ -49,6 +49,8 @@ final class SCKCaptureBackend: SystemAudioCapturing {
     private let eventSink: AsyncStream<CaptureEvent>.Continuation
     private let coordinator = SCKPickerCoordinator()
     private let store: ProbeRunStore
+    /// DEBUG keeps each run's report for the Lab; Release deletes it once the run ends (spec 014 R4).
+    private let keepsReports: Bool
     private let spoolDirectory: SpoolDirectory?
     private let log: AppLog
     private var settings = Settings()
@@ -64,8 +66,9 @@ final class SCKCaptureBackend: SystemAudioCapturing {
     /// late start failed with -3802.
     private var pickerBackgroundTask = UIBackgroundTaskIdentifier.invalid
 
-    init(store: ProbeRunStore, spoolDirectory: SpoolDirectory?, log: AppLog) {
+    init(store: ProbeRunStore, keepsReports: Bool, spoolDirectory: SpoolDirectory?, log: AppLog) {
         self.store = store
+        self.keepsReports = keepsReports
         self.spoolDirectory = spoolDirectory
         self.log = log
         (events, eventSink) = AsyncStream.makeStream(of: CaptureEvent.self)
@@ -237,6 +240,13 @@ final class SCKCaptureBackend: SystemAudioCapturing {
         let run = ProbeRun(directory: session.directory, reportURL: session.reportURL, rawDumpURL: rawDumpURL,
                            report: report, spoolManifest: spoolManifest)
         eventSink.yield(.stopped(run))
+        if !keepsReports {
+            do {
+                try store.remove(session.directory)
+            } catch {
+                log.error("probe run not removed: \(error.localizedDescription)")
+            }
+        }
         return run
     }
 
@@ -290,6 +300,11 @@ final class SCKCaptureBackend: SystemAudioCapturing {
         }
     }
 
+}
+
+// MARK: - Report flush (G2)
+
+extension SCKCaptureBackend {
     /// Every 5 s: sample memory and persist the report so a killed app still leaves evidence (G2).
     /// `nonisolated` so the handler is not inferred to be main-actor isolated (it runs on a utility queue).
     private nonisolated static func makeFlushTimer(
