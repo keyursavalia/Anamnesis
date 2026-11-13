@@ -3,43 +3,28 @@ import AppIntents
 import SwiftUI
 import WidgetKit
 
-// SPIKE: spec 005 launch-trigger ladder. Two controls so both rungs can sit in Control Center side by side.
-
-/// Rung 2: opens the app and presents the screen-sharing picker on arrival.
+/// The one-tap trigger (spec 005 Step 6): on presents the screen-sharing picker over the current app (rung 3),
+/// off stops the capture. The app mirrors the real capture state into the App Group, so the toggle flips back off
+/// after a cancelled picker or a stop from the system indicator.
 struct CapturePoemControl: ControlWidget {
     var body: some ControlWidgetConfiguration {
-        StaticControlConfiguration(kind: AppIdentifiers.ControlKind.capture) {
-            ControlWidgetButton(action: OpenCaptureIntent(autoPresent: true)) {
+        StaticControlConfiguration(kind: AppIdentifiers.ControlKind.capture, provider: CaptureStateProvider()) { isOn in
+            ControlWidgetToggle(isOn: isOn, action: CaptureToggleIntent()) {
                 Label("Capture poem", systemImage: "text.quote")
+            } valueLabel: { isOn in
+                Text(isOn ? "Listening" : "Off")
             }
         }
         .displayName("Capture poem")
-        .description("Opens Anamnesis and asks to share this device's audio.")
+        .description("Captures the audio playing on this device without leaving the app you are in.")
     }
 }
 
-/// Rung 1: opens the app on the capture screen; one more tap presents the picker.
-struct OpenCaptureControl: ControlWidget {
-    var body: some ControlWidgetConfiguration {
-        StaticControlConfiguration(kind: AppIdentifiers.ControlKind.openCapture) {
-            ControlWidgetButton(action: OpenCaptureIntent(autoPresent: false)) {
-                Label("Open capture", systemImage: "record.circle")
-            }
-        }
-        .displayName("Open capture")
-        .description("Opens Anamnesis on the capture screen.")
-    }
-}
+/// Runs in the widget extension; reads what the app last wrote.
+struct CaptureStateProvider: ControlValueProvider {
+    let previewValue = false
 
-/// Rung 3 (experiment): asks for the picker while you stay in the current app.
-struct CaptureHereControl: ControlWidget {
-    var body: some ControlWidgetConfiguration {
-        StaticControlConfiguration(kind: AppIdentifiers.ControlKind.captureHere) {
-            ControlWidgetButton(action: CaptureInBackgroundIntent()) {
-                Label("Capture here", systemImage: "waveform")
-            }
-        }
-        .displayName("Capture here (test)")
-        .description("Experiment: asks to share audio without opening Anamnesis.")
+    func currentValue() async throws -> Bool {
+        (CaptureControlState.sharedURL.map(CaptureControlState.init(contentsOf:)) ?? .idle).isCapturing
     }
 }
