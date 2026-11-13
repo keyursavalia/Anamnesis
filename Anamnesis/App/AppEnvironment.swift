@@ -60,6 +60,7 @@ final class AppEnvironment {
         log(.ui).notice("AppEnvironment init #\(Self.instanceCount)")
         // Nothing captures in a fresh process; clears a state left by a capture the app died in.
         CaptureControlSync.publish(.idle, log: log(.ui))
+        capture.activity.endLeftovers()
         observeLaunchMailbox()
         observeCapture()
     }
@@ -141,6 +142,7 @@ final class AppEnvironment {
         switch CaptureLaunchMailbox.shared.take() {
         case .start(let link): receive(link, via: "intent")
         case .stop: stopCaptureFromControl()
+        case .stopIfCapturing: stopCaptureFromActivity()
         case nil: break
         }
     }
@@ -178,18 +180,34 @@ final class AppEnvironment {
     /// The control was switched off. The app may be in the background, so keep it running until the run is saved.
     private func stopCaptureFromControl() {
         if capture.isCapturing {
-            log(.capture).notice("control: stop requested")
-            let task = UIApplication.shared.beginBackgroundTask(withName: "capture-stop")
-            Task {
-                await capture.stop()
-                UIApplication.shared.endBackgroundTask(task)
-            }
+            stopCapture(source: "control")
             return
         }
         // Nothing to stop: the switch showed a stale "on", because the system ignores the app's reload after a stop
         // from the recording indicator (F-037). The user tapped a switch for a capture that is not running, so
         // start one; the reload at start is honoured because it follows the tap.
         receive(CaptureLaunchLink(rung: .withoutForeground, tappedAt: Date()), via: "intent (switch was stale)")
+    }
+
+    /// The Live Activity's Stop (spec 007 R4). Nothing running means the activity is stale (an update after a stop
+    /// from the recording indicator did not land, Q-007-2): end it, and refresh the switch while reloads are honoured.
+    private func stopCaptureFromActivity() {
+        if capture.isCapturing {
+            stopCapture(source: "activity")
+        } else {
+            log(.capture).notice("activity: stop with no capture running")
+            capture.activity.endAll(reason: "stale activity")
+            CaptureControlSync.publish(.idle, log: log(.ui))
+        }
+    }
+
+    private func stopCapture(source: String) {
+        log(.capture).notice("\(source): stop requested")
+        let task = UIApplication.shared.beginBackgroundTask(withName: "capture-stop")
+        Task {
+            await capture.stop()
+            UIApplication.shared.endBackgroundTask(task)
+        }
     }
 
     /// The system honours a control reload while the app is in front (F-037); refreshes a switch left stale.
