@@ -47,6 +47,15 @@ nonisolated struct ProbeRunStore: Sendable {
         .sorted { $0.report.startedAt > $1.report.startedAt }
     }
 
+    /// Release keeps no probe reports (spec 014 R4): one run's folder after it finishes, or every run at launch.
+    func remove(_ directory: URL) throws {
+        try FileManager.default.removeItem(at: directory)
+    }
+
+    func removeAll() throws {
+        try AppDataFiles.removeContents(of: root)
+    }
+
     static func sanitized(_ label: String) -> String {
         let allowed = CharacterSet.alphanumerics.union(CharacterSet(charactersIn: "-_"))
         let cleaned = label.trimmingCharacters(in: .whitespaces).unicodeScalars
