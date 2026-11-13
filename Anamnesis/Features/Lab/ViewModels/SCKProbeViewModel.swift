@@ -21,10 +21,12 @@ final class SCKProbeViewModel {
     private let store: ProbeRunStore?
     private let fileLog: FileLog?
     private let sessions: SessionIngestor?
+    private let log: AppLog
     private var eventsTask: Task<Void, Never>?
 
     init(environment: AppEnvironment) {
         fileLog = environment.fileLog
+        log = environment.log(.capture)
         sessions = environment.sessions
         let store = try? ProbeRunStore.appDefault()
         self.store = store
@@ -108,6 +110,7 @@ final class SCKProbeViewModel {
     // MARK: - Private
 
     private func handle(_ event: CaptureEvent) {
+        syncControl(with: event)
         switch event {
         case .pickerPresented(let style): append("picker presented (\(style))")
         case .pickerCancelled: append("picker cancelled")
@@ -129,6 +132,18 @@ final class SCKProbeViewModel {
             append("stopped: \(run.report.stop?.reason.rawValue ?? "?")")
             refreshRuns()
             Task { await sessions?.refresh(activeSessionIDs: []) }
+        }
+    }
+
+    /// Keeps the *Capture poem* control in step with the stream, whichever way it started or ended (spec 005 Step 6).
+    private func syncControl(with event: CaptureEvent) {
+        switch event {
+        case .started:
+            CaptureControlSync.publish(CaptureControlState(isCapturing: true, startedAt: Date()), log: log)
+        case .pickerCancelled, .pickerFailed, .startFailed, .stopped:
+            CaptureControlSync.publish(.idle, log: log)
+        case .pickerPresented, .filterReceived:
+            break
         }
     }
 
