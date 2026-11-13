@@ -10,6 +10,9 @@ nonisolated struct SpoolSessionSummary: Sendable, Identifiable {
     let manifest: SpoolManifest?
     let sizeBytes: Int
     let isDone: Bool
+    /// Segments still on disk; false once D-010 has deleted them after a transcription (spec 008 R7).
+    let hasAudio: Bool
+    let hasTranscript: Bool
 }
 
 /// Scans the spool root at launch and on foreground (spec 002 Step 6): recovers sessions the app died in,
@@ -57,6 +60,7 @@ final class SessionIngestor {
     private nonisolated static func summary(_ session: SpoolSession) -> SpoolSessionSummary {
         SpoolSessionSummary(
             session: session, manifest: try? SpoolManifest.read(from: session.manifestURL),
-            sizeBytes: session.sizeOnDisk(), isDone: session.isDone)
+            sizeBytes: session.sizeOnDisk(), isDone: session.isDone, hasAudio: session.hasAudio,
+            hasTranscript: session.hasTranscript)
     }
 }
