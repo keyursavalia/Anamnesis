@@ -12,8 +12,6 @@ final class AppEnvironment {
     /// nil only if Application Support is unavailable; capture then runs without spooling.
     let sessions: SessionIngestor?
     @ObservationIgnored private var launchObserver: (any NSObjectProtocol)?
-    /// Last time a scene became active; logged by the rung-3 check.
-    @ObservationIgnored private var lastActiveAt: Date?
 
     /// One per process, created at `App.init`, so an intent run in a cold background launch finds it ready, and a
     /// second instance can never register a second picker observer (F-032, H1/H3). Previews make their own.
@@ -38,11 +36,9 @@ final class AppEnvironment {
                             log: AppLog(category: .spool, fileLog: fileLog))
         }
         log(.ui).notice("AppEnvironment init #\(Self.instanceCount)")
+        // Nothing captures in a fresh process; clears a state left by a capture the app died in.
+        CaptureControlSync.publish(.idle, log: log(.ui))
         observeLaunchMailbox()
-    }
-
-    func markActive() {
-        lastActiveAt = Date()
     }
 
     func log(_ category: LogCategory) -> AppLog {
@@ -65,9 +61,13 @@ final class AppEnvironment {
         receive(link, via: "url")
     }
 
-    /// Picks up a link the control's intent posted in-process (F-028); call on each post and on becoming active.
+    /// Picks up a command the control's intent posted in-process (F-028); call on each post and on becoming active.
     func drainLaunchMailbox() {
-        if let link = CaptureLaunchMailbox.shared.take() { receive(link, via: "intent") }
+        switch CaptureLaunchMailbox.shared.take() {
+        case .start(let link): receive(link, via: "intent")
+        case .stop: stopCaptureFromControl()
+        case nil: break
+        }
     }
 
     private func receive(_ link: CaptureLaunchLink, via source: String) {
@@ -86,23 +86,30 @@ final class AppEnvironment {
             Task { @MainActor in self?.drainLaunchMailbox() }
         }
         drainLaunchMailbox()
-        let log = log(.capture)
-        CaptureLaunchMailbox.shared.setInPlaceCheck { [weak self] in
-            await MainActor.run { Self.canPresentPickerInPlace(log: log, lastActiveAt: self?.lastActiveAt) }
-        }
     }
 
-    /// A suspended app keeps its scene and presents in place reliably (F-034). A cold background launch for an intent
-    /// has no scene; F-031 suggested `present()` then waits for the next launch, but that run had the F-032 bugs.
-    /// SPIKE (F-034 cold experiment): always try in place and log the scenes; fallback to rung 2 is off.
-    private static func canPresentPickerInPlace(log: AppLog, lastActiveAt: Date?) -> Bool {
-        let scenes = UIApplication.shared.connectedScenes
-        // activationState: 0 foregroundActive, 1 foregroundInactive, 2 background, -1 unattached.
-        let states = scenes.map { String($0.activationState.rawValue) }.joined(separator: ",")
-        let sinceActive = lastActiveAt.map { String(format: "%.0f s", Date().timeIntervalSince($0)) } ?? "never"
-        log.notice("rung 3 check: applicationState=\(UIApplication.shared.applicationState.rawValue) "
-                   + "scenes=[\(states)] sinceActive=\(sinceActive)")
-        return true
+    /// The control was switched off. The app may be in the background, so keep it running until the run is saved.
+    private func stopCaptureFromControl() {
+        #if DEBUG && canImport(ScreenCaptureKit)
+        if let model = sckProbeModel, model.isCapturing {
+            log(.capture).notice("control: stop requested")
+            let task = UIApplication.shared.beginBackgroundTask(withName: "capture-stop")
+            Task {
+                await model.stop()
+                UIApplication.shared.endBackgroundTask(task)
+            }
+            return
+        }
+        #endif
+        // Nothing to stop: the switch showed a stale "on", because the system ignores the app's reload after a stop
+        // from the recording indicator (F-037). The user tapped a switch for a capture that is not running, so
+        // start one; the reload at start is honoured because it follows the tap.
+        receive(CaptureLaunchLink(rung: .withoutForeground, tappedAt: Date()), via: "intent (switch was stale)")
+    }
+
+    /// The system honours a control reload while the app is in front (F-037); refreshes a switch left stale.
+    func reloadControl() {
+        CaptureControlSync.reload(log: log(.ui))
     }
 
     var isCapturing: Bool {
@@ -153,10 +160,14 @@ final class AppEnvironment {
         return model
     }
 
-    // SPIKE: rung 3. Records the app state so the log shows whether we really were not in the foreground.
+    /// Rung 3, cold, windowless or suspended (F-036). Logs the app state so a run shows it really was not in front.
     private func presentPickerWithoutForeground() {
         let model = sckProbe()
-        guard !model.isCapturing else { return }
+        guard !model.isCapturing else {
+            // The switch showed a stale "off" while capturing: show the truth instead of starting a second capture.
+            CaptureControlSync.publish(CaptureControlState(isCapturing: true), log: log(.capture))
+            return
+        }
         let state = UIApplication.shared.applicationState
         let cold = UIApplication.shared.connectedScenes.isEmpty
         // Longer settle when cold: the picker observer was registered only just now.
