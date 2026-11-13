@@ -4,10 +4,15 @@ import Foundation
 import Observation
 import UIKit
 
-// SPIKE: Lab → SCK Probe (spec 001 Step 6).
+// SPIKE: Lab → SCK Probe (spec 001 Step 6). Drives the app's one `CaptureController` (spec 008 R1); it has no
+// backend of its own, so the Lab and the product share one picker observer (F-032).
 @Observable
 final class SCKProbeViewModel {
-    var settings = SCKCaptureBackend.Settings()
+    /// The controller's settings, so a probe run and a control launch use what the operator set.
+    var settings: SCKCaptureBackend.Settings {
+        get { controller.settings }
+        set { controller.settings = newValue }
+    }
     var noteText = ""
     private(set) var live: ProbeReport?
     private(set) var liveSpool: SegmentedSpoolWriter.Progress?
@@ -17,47 +22,42 @@ final class SCKProbeViewModel {
     private(set) var eventLines: [String] = []
     private(set) var lastError: String?
 
-    let backend: SCKCaptureBackend?
+    var backend: SCKCaptureBackend? { controller.backend }
+    private let controller: CaptureController
     private let store: ProbeRunStore?
     private let fileLog: FileLog?
     private let sessions: SessionIngestor?
-    private let log: AppLog
     private var eventsTask: Task<Void, Never>?
 
     init(environment: AppEnvironment) {
         fileLog = environment.fileLog
-        log = environment.log(.capture)
         sessions = environment.sessions
+        controller = environment.capture
         let store = try? ProbeRunStore.appDefault()
         self.store = store
-        backend = store.map {
-            SCKCaptureBackend(
-                store: $0, spoolDirectory: environment.sessions?.directory, log: environment.log(.capture))
-        }
         if store == nil { lastError = "Application Support is not writable; probe runs cannot be saved." }
         refreshRuns()
         // Observed for the model's lifetime (the app session), not a view's, so no event is lost on navigation.
-        if let events = backend?.events {
-            eventsTask = Task { [weak self] in
-                for await event in events { self?.handle(event) }
-            }
+        let events = controller.subscribe()
+        eventsTask = Task { [weak self] in
+            for await event in events { self?.handle(event) }
         }
     }
 
-    var isCapturing: Bool { backend?.isCapturing ?? false }
-    var isPickerAvailable: Bool { backend?.isPickerAvailable ?? false }
+    var isCapturing: Bool { controller.isCapturing }
+    var isPickerAvailable: Bool { controller.isPickerAvailable }
 
     func start(settle: Duration = .zero) {
         lastError = nil
         do {
-            try backend?.requestStart(settings, settle: settle)
+            try controller.start(settle: settle)
         } catch {
             lastError = error.localizedDescription
         }
     }
 
     func stop() async {
-        if let run = await backend?.stop() { lastRun = run }
+        if let run = await controller.stop() { lastRun = run }
         refreshRuns()
     }
 
@@ -109,8 +109,8 @@ final class SCKProbeViewModel {
 
     // MARK: - Private
 
+    /// The controller has already synced the control and written the capture record.
     private func handle(_ event: CaptureEvent) {
-        syncControl(with: event)
         switch event {
         case .pickerPresented(let style): append("picker presented (\(style))")
         case .pickerCancelled: append("picker cancelled")
@@ -131,19 +131,6 @@ final class SCKProbeViewModel {
             }
             append("stopped: \(run.report.stop?.reason.rawValue ?? "?")")
             refreshRuns()
-            Task { await sessions?.refresh(activeSessionIDs: []) }
-        }
-    }
-
-    /// Keeps the *Capture poem* control in step with the stream, whichever way it started or ended (spec 005 Step 6).
-    private func syncControl(with event: CaptureEvent) {
-        switch event {
-        case .started:
-            CaptureControlSync.publish(CaptureControlState(isCapturing: true, startedAt: Date()), log: log)
-        case .pickerCancelled, .pickerFailed, .startFailed, .stopped:
-            CaptureControlSync.publish(.idle, log: log)
-        case .pickerPresented, .filterReceived:
-            break
         }
     }
 
