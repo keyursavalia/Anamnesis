@@ -5,7 +5,5 @@ import WidgetKit
 struct AnamnesisControlsBundle: WidgetBundle {
     var body: some Widget {
         CapturePoemControl()
-        OpenCaptureControl()
-        CaptureHereControl()
     }
 }
