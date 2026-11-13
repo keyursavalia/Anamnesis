@@ -1,3 +1,5 @@
+// `Activity` is not marked `Sendable`; each one is used by a single task here, looked up afresh, never shared.
+@preconcurrency import ActivityKit
 import AnamnesisKit
 import AppIntents
 import Foundation
@@ -10,7 +12,8 @@ import os
 /// The *Capture poem* toggle. On: presents the picker over the current app without bringing Anamnesis forward,
 /// cold, windowless or suspended (rung 3, F-036). Off: stops the capture. The app acts on the real capture state, so a
 /// tap on a switch left stale by a stop from the recording indicator still does what the user means (F-037).
-struct CaptureToggleIntent: SetValueIntent {
+/// A `LiveActivityIntent` too, so `perform` may start the capture Live Activity without the app in front (spec 007).
+struct CaptureToggleIntent: SetValueIntent, LiveActivityIntent {
     static let title: LocalizedStringResource = "Capture poem"
     static let isDiscoverable = false
     static let supportedModes: IntentModes = .background
@@ -21,8 +24,51 @@ struct CaptureToggleIntent: SetValueIntent {
     var value: Bool
 
     func perform() async throws -> some IntentResult {
+        if value { await CaptureActivityStart.awaitConsent() }
         CaptureLaunchMailbox.post(value ? .start(CaptureLaunchLink(rung: .withoutForeground, tappedAt: Date())) : .stop)
         return .result()
+    }
+}
+
+/// The Live Activity's Stop button (spec 007 R4). Runs in the app like the toggle, so the control reload that
+/// follows the stop is honoured and the switch turns off at once (F-037).
+struct StopCaptureIntent: LiveActivityIntent {
+    static let title: LocalizedStringResource = "Stop capture"
+    static let isDiscoverable = false
+    static let supportedModes: IntentModes = .background
+    static let allowedExecutionTargets: IntentExecutionTargets = .main
+
+    func perform() async throws -> some IntentResult {
+        CaptureLaunchMailbox.post(.stopIfCapturing)
+        return .result()
+    }
+}
+
+/// Starts the activity inside the toggle's `perform`, the window in which the system allows it without the app in
+/// front (R2). The app takes it over from there (`CaptureActivityController`). Never fails the intent (§4.4).
+private enum CaptureActivityStart {
+    static func awaitConsent() async {
+        let log = Logger(category: .ui)
+        guard ActivityAuthorizationInfo().areActivitiesEnabled else {
+            log.notice("activity not requested: Live Activities are off")
+            return
+        }
+        let existing = Activity<CaptureActivityAttributes>.activities
+        // Listening already: the switch showed a stale "off" during a capture; the app keeps that capture (F-037).
+        if existing.contains(where: { $0.content.state.phase == .listening }) {
+            log.notice("activity kept: a capture is listening")
+            return
+        }
+        // At most one activity (R6).
+        for activity in existing { await activity.end(nil, dismissalPolicy: .immediate) }
+        do {
+            let activity = try Activity.request(
+                attributes: CaptureActivityAttributes(),
+                content: ActivityContent(state: .awaitingConsent, staleDate: nil))
+            log.notice("activity requested id=\(activity.id, privacy: .public) phase=awaitingConsent")
+        } catch {
+            log.error("activity request failed: \(error.localizedDescription, privacy: .public)")
+        }
     }
 }
 
