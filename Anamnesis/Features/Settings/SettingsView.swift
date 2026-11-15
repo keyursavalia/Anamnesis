@@ -1,185 +1,129 @@
-import AnamnesisKit
-import Speech
 import SwiftUI
 
-/// The speech model, storage, privacy, *Delete all data* and version (spec 013, PRD M8, M9).
+/// Settings (spec 013; restructured in spec 016 R10–R12): the brand row (opens About), two square tiles for the guide
+/// and the *Capture poem* control, then App settings, Privacy and Terms of Use.
 struct SettingsView: View {
     @Environment(AppEnvironment.self) private var environment
-    @State private var usage: AppEnvironment.StorageUsage?
-    @State private var confirmingDelete = false
-    @State private var isDeleting = false
-    @State private var errorText: String?
+    @State private var showsGuide = false
+    @State private var showsControlSetup = false
 
     var body: some View {
         NavigationStack {
             List {
-                if let assets = environment.transcripts?.assets { modelSection(assets) }
-                storageSection
-                privacySection
-                deleteSection
-                aboutSection
-                #if DEBUG
                 Section {
-                    NavigationLink("Files in Application Support") { AppDataFilesView() }
-                } footer: {
-                    Text("DEBUG: lists every file, for checking Delete all data (spec 013 AC1).")
+                    NavigationLink { AboutView() } label: { brandRow }
                 }
-                #endif
+                .listRowBackground(Theme.surface)
+
+                tiles
+                    .listRowInsets(EdgeInsets())
+                    .listRowBackground(Color.clear)
+
+                Section {
+                    NavigationLink { AppSettingsView() } label: {
+                        SettingsRow(title: "App settings", systemImage: "gearshape.fill", tint: Theme.inkSecondary)
+                    }
+                    NavigationLink { PrivacyView() } label: {
+                        SettingsRow(title: "Privacy", systemImage: "hand.raised.fill", tint: Theme.sage)
+                    }
+                    NavigationLink { TermsView() } label: {
+                        SettingsRow(title: "Terms of Use", systemImage: "doc.text.fill", tint: Theme.ember)
+                    }
+                }
+                .listRowBackground(Theme.surface)
             }
+            .paperBackground()
+            .tint(Theme.ember)
             .navigationTitle("Settings")
-            .task(id: environment.dataDeletedAt) { usage = await environment.storageUsage() }
-            .refreshable { usage = await environment.storageUsage() }
+            .sheet(isPresented: $showsGuide) { OnboardingView { showsGuide = false } }
+            .sheet(isPresented: $showsControlSetup) { ControlSetupSheet() }
+            .task { await environment.controlCenter.refresh() }
         }
     }
 
-    // MARK: - Speech model (R1)
-
-    private func modelSection(_ assets: AssetManager) -> some View {
-        Section {
-            LabeledContent("English", value: modelStatus(assets.state))
-            if case .installing(let fraction) = assets.state {
-                ProgressView(value: fraction)
+    private var brandRow: some View {
+        HStack(spacing: 16) {
+            AppMark(size: 56)
+            VStack(alignment: .leading, spacing: 2) {
+                Text("Anamnesis").font(Theme.display(.title2)).foregroundStyle(Theme.ink)
+                Text("Keep the poems you hear.").font(Theme.verse(.subheadline)).italic()
+                    .foregroundStyle(Theme.inkSecondary)
             }
-            if needsDownload(assets.state) {
-                Button("Download speech model", systemImage: "arrow.down.circle") {
-                    Task { await assets.install(locale: TranscriptionQueue.locale, config: TranscriptionQueue.config) }
-                }
-            }
-        } header: {
-            Text("Speech model")
-        } footer: {
-            Text("Apple downloads the English speech model once, through the system. Your audio and your poems "
-                 + "never leave this device.")
         }
-        .task { await assets.refresh(locale: TranscriptionQueue.locale, config: TranscriptionQueue.config) }
+        .padding(.vertical, 6)
+        .accessibilityElement(children: .combine)
+        .accessibilityHint("About Anamnesis")
     }
 
-    private func modelStatus(_ state: AssetState) -> String {
-        switch state {
-        case .status(.installed): "Installed"
-        case .status(.supported): "Not downloaded"
-        default: state.label
+    /// Spec 016 R10: two squares side by side under the app name.
+    private var tiles: some View {
+        let added = environment.controlCenter.isAdded
+        return HStack(spacing: 12) {
+            SquareTile(title: "How it works", detail: "The three steps, again", systemImage: "sparkles",
+                       tint: Theme.ember) { showsGuide = true }
+            SquareTile(title: "Capture poem", detail: added ? "In Control Center" : "Add to Control Center",
+                       systemImage: added ? "checkmark.circle.fill" : "switch.2",
+                       tint: added ? Theme.sage : Theme.ember) { showsControlSetup = true }
         }
-    }
-
-    private func needsDownload(_ state: AssetState) -> Bool {
-        switch state {
-        case .status(let status): status != .installed && status != .unsupported
-        case .failed: true
-        default: false
-        }
-    }
-
-    // MARK: - Storage (R2)
-
-    private var storageSection: some View {
-        Section {
-            LabeledContent("Captures", value: Self.bytes(usage?.captures))
-            LabeledContent("Library", value: Self.bytes(usage?.library))
-            LabeledContent("Diagnostics", value: Self.bytes(usage?.diagnostics))
-        } header: {
-            Text("Storage")
-        } footer: {
-            Text("Captures holds audio until it is transcribed, then only the text. Diagnostics is the app's own log.")
-        }
-    }
-
-    private static func bytes(_ value: Int64?) -> String {
-        value.map { ByteCountFormatter.string(fromByteCount: $0, countStyle: .file) } ?? "–"
-    }
-
-    // MARK: - Privacy (R4)
-
-    private var privacySection: some View {
-        Section("Privacy") {
-            Label("Anamnesis records only the sound other apps play while you capture. It never uses your "
-                  + "microphone.", systemImage: "speaker.wave.2")
-            Label("Transcription happens on this device. Nothing is sent anywhere: no account, no analytics, "
-                  + "no cloud.", systemImage: "iphone")
-            Label("Audio is deleted once it is transcribed; only the text is kept.", systemImage: "trash")
-            Label("Your library is included in your device backup; capture audio is not.",
-                  systemImage: "externaldrive")
-        }
-        .font(.callout)
-    }
-
-    // MARK: - Delete all (R3)
-
-    private var deleteSection: some View {
-        Section {
-            Button(role: .destructive) {
-                confirmingDelete = true
-            } label: {
-                if isDeleting {
-                    ProgressView()
-                } else {
-                    Label("Delete all data", systemImage: "trash")
-                }
-            }
-            .disabled(isDeleting || environment.capture.isCapturing)
-            if let errorText {
-                Text(errorText).font(.callout).foregroundStyle(.red)
-            }
-        } footer: {
-            Text(environment.capture.isCapturing
-                 ? "Stop the capture to delete data."
-                 : "Removes every capture, Moment and poem, and the app's log. This cannot be undone.")
-        }
-        .confirmationDialog("Delete all data?", isPresented: $confirmingDelete, titleVisibility: .visible) {
-            Button("Delete everything", role: .destructive) { deleteAll() }
-        } message: {
-            Text("Every capture, Moment and poem is removed from this device. This cannot be undone.")
-        }
-    }
-
-    private func deleteAll() {
-        isDeleting = true
-        Task {
-            do {
-                try await environment.deleteAllData()
-                errorText = nil
-            } catch {
-                errorText = "Could not delete everything: \(error.localizedDescription)"
-            }
-            isDeleting = false
-        }
-    }
-
-    // MARK: - About
-
-    private var aboutSection: some View {
-        let info = Bundle.main.infoDictionary
-        let version = info?["CFBundleShortVersionString"] as? String ?? "?"
-        let build = info?["CFBundleVersion"] as? String ?? "?"
-        return Section("About") {
-            LabeledContent("Version", value: "\(version) (\(build))")
-        }
+        .frame(maxWidth: 520)
+        .frame(maxWidth: .infinity)
     }
 }
 
-#if DEBUG
-/// Every file under Application Support with its size (spec 013 AC1 evidence).
-private struct AppDataFilesView: View {
-    @Environment(AppEnvironment.self) private var environment
-    @State private var entries: [AppDataFiles.Entry] = []
+/// A square button: icon top-left, title and a short status bottom-left.
+private struct SquareTile: View {
+    let title: String
+    let detail: String
+    let systemImage: String
+    let tint: Color
+    let action: () -> Void
 
     var body: some View {
-        List {
-            if entries.isEmpty { Text("No files.").foregroundStyle(.secondary) }
-            ForEach(entries, id: \.path) { entry in
-                LabeledContent(entry.path,
-                               value: ByteCountFormatter.string(fromByteCount: entry.bytes, countStyle: .file))
-                    .font(.caption.monospaced())
-            }
+        Button(action: action) {
+            // A square base with the content laid over it, so the tile stays square at any width.
+            Color.clear
+                .aspectRatio(1, contentMode: .fit)
+                .overlay(alignment: .topLeading) {
+                    VStack(alignment: .leading, spacing: 0) {
+                        Image(systemName: systemImage)
+                            .font(.title2.weight(.semibold))
+                            .foregroundStyle(tint)
+                            .frame(width: 48, height: 48)
+                            .background(tint.opacity(0.13), in: .rect(cornerRadius: 14, style: .continuous))
+                            .contentTransition(.symbolEffect(.replace))
+                        Spacer(minLength: 8)
+                        Text(title).font(.headline).foregroundStyle(Theme.ink)
+                        Text(detail).font(.footnote).foregroundStyle(Theme.inkSecondary).lineLimit(2)
+                    }
+                    .padding(16)
+                    .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
+                }
+                .background(Theme.surface, in: .rect(cornerRadius: Theme.cornerRadius, style: .continuous))
+                .overlay {
+                    RoundedRectangle(cornerRadius: Theme.cornerRadius, style: .continuous)
+                        .strokeBorder(Theme.hairline, lineWidth: 0.5)
+                }
         }
-        .navigationTitle("Application Support")
-        .task { await load() }
-        .refreshable { await load() }
-    }
-
-    private func load() async {
-        guard let support = environment.supportDirectory else { return }
-        entries = await Task.detached { AppDataFiles.files(under: support) }.value
+        .buttonStyle(CardButtonStyle())
+        .accessibilityElement(children: .combine)
     }
 }
-#endif
+
+/// A Settings row: a coloured icon tile and a title.
+struct SettingsRow: View {
+    let title: String
+    let systemImage: String
+    let tint: Color
+
+    var body: some View {
+        Label {
+            Text(title).foregroundStyle(Theme.ink)
+        } icon: {
+            Image(systemName: systemImage)
+                .font(.footnote.weight(.semibold))
+                .foregroundStyle(.white)
+                .frame(width: 28, height: 28)
+                .background(tint, in: .rect(cornerRadius: 7, style: .continuous))
+        }
+    }
+}
