@@ -64,7 +64,8 @@ private enum CaptureActivityStart {
         do {
             let activity = try Activity.request(
                 attributes: CaptureActivityAttributes(),
-                content: ActivityContent(state: .awaitingConsent, staleDate: nil))
+                content: ActivityContent(state: .awaitingConsent,
+                                         staleDate: CaptureActivityState.awaitingConsent.staleDate(from: Date())))
             log.notice("activity requested id=\(activity.id, privacy: .public) phase=awaitingConsent")
         } catch {
             log.error("activity request failed: \(error.localizedDescription, privacy: .public)")
