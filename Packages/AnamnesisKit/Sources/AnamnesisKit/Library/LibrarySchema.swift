@@ -109,6 +109,7 @@ public enum LibrarySchemaV1: VersionedSchema {
         public var poet: String?
         /// `\n` line breaks, blank line between stanzas.
         public var body: String
+        /// Unused since spec 016 R3 (no tags). Kept so the v1 schema, and the user's store, need no migration.
         public var tags: [String]
         public var sourceNote: String?
         public var userEdited: Bool
