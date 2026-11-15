@@ -3,7 +3,7 @@ import SwiftData
 import Testing
 @testable import AnamnesisKit
 
-@Suite("Moments review")
+@Suite("Keeping Moments as poems")
 struct MomentReviewTests {
     let start = Date(timeIntervalSince1970: 1_794_000_000)
 
@@ -52,40 +52,24 @@ struct MomentReviewTests {
         #expect(try poemCount(context) == 1)
     }
 
-    @Test("dismiss and restore round-trip; a saved Moment cannot be dismissed")
-    func dismissRestore() throws {
-        let (context, session) = try makeSession()
-        let moments = session.sortedMoments
-        moments[0].dismiss()
-        #expect(moments[0].review == .dismissed)
-        moments[0].restore()
-        #expect(moments[0].review == .new)
-        moments[1].saveAsPoem(in: context)
-        moments[1].dismiss()
-        moments[1].restore()
-        #expect(moments[1].review == .saved)
-    }
-
-    @Test("a dismissed Moment can still be saved")
+    @Test("a Moment dismissed before spec 016 can still be kept")
     func saveDismissed() throws {
         let (context, session) = try makeSession()
         let moment = session.sortedMoments[1]
-        moment.dismiss()
+        moment.review = .dismissed
         let poem = moment.saveAsPoem(in: context)
         #expect(moment.review == .saved)
         #expect(poem.body == "three")
     }
 
-    @Test("the session counts new and reviewed Moments, and the counts survive a fresh context")
-    func counts() throws {
+    @Test("the session counts the poems it still has in the library")
+    func keptCount() throws {
         let (context, session) = try makeSession()
-        #expect(session.newMomentCount == 2)
-        session.sortedMoments[0].dismiss()
+        #expect(session.keptPoemCount == 0)
+        let poems = session.sortedMoments.map { $0.saveAsPoem(in: context) }
+        #expect(session.keptPoemCount == 2)
+        context.delete(poems[0])
         try context.save()
-        #expect(session.newMomentCount == 1)
-        #expect(session.reviewedMomentCount == 1)
-        let fresh = ModelContext(context.container)
-        let new = MomentReview.new.rawValue
-        #expect(try fresh.fetchCount(FetchDescriptor<MomentRecord>(predicate: #Predicate { $0.reviewRaw == new })) == 1)
+        #expect(session.keptPoemCount == 1)
     }
 }
