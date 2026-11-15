@@ -7,56 +7,6 @@ import Testing
 struct PoemEditingTests {
     let start = Date(timeIntervalSince1970: 1_794_000_000)
 
-    static func word(_ text: String, _ confidence: Double = 0.9) -> TranscriptWord {
-        TranscriptWord(text: text, startSec: 0, endSec: 0, confidence: confidence)
-    }
-
-    static func substrings(_ body: String, _ ranges: [Range<Int>]) -> [String] {
-        let chars = Array(body)
-        return ranges.map { String(chars[$0]) }
-    }
-
-    // MARK: - Unsure words
-
-    @Test("unsure words are found in a fresh body, across lines and stanzas")
-    func unsureFresh() {
-        let words = [Self.word("I"), Self.word("wandered,", 0.3), Self.word("lonely"), Self.word("as"),
-                     Self.word("a", 0.2), Self.word("cloud", 0.4)]
-        let body = "I wandered,\nlonely as\n\na cloud"
-        #expect(Self.substrings(body, UnsureWords.ranges(in: body, words: words)) == ["wandered,", "a", "cloud"])
-    }
-
-    @Test("an edited word loses its highlight and the rest keep theirs")
-    func unsureEdited() {
-        let words = [Self.word("the"), Self.word("nite", 0.3), Self.word("is"), Self.word("dark", 0.4)]
-        let body = "the night is dark"
-        #expect(Self.substrings(body, UnsureWords.ranges(in: body, words: words)) == ["dark"])
-    }
-
-    @Test("repeated words match in order and inside words never match")
-    func unsureRepeated() {
-        let words = [Self.word("a"), Self.word("cat"), Self.word("a", 0.1)]
-        let body = "a cat a"
-        #expect(UnsureWords.ranges(in: body, words: words) == [6..<7])
-        let inside = [Self.word("at", 0.1)]
-        #expect(UnsureWords.ranges(in: "cat", words: inside).isEmpty)
-    }
-
-    @Test("the walk finds its place again after an inserted line")
-    func unsureAfterInsert() {
-        let words = [Self.word("one"), Self.word("two"), Self.word("three"), Self.word("four", 0.2)]
-        let inserted = String(repeating: "x ", count: 30)
-        let body = "one \(inserted)two three four"
-        #expect(Self.substrings(body, UnsureWords.ranges(in: body, words: words)) == ["four"])
-    }
-
-    @Test("words follow LineBreaker's order")
-    func unsureWordOrder() {
-        let late = TranscriptSegment(text: "b", startSec: 5, endSec: 6)
-        let early = TranscriptSegment(text: "a", startSec: 0, endSec: 1)
-        #expect(UnsureWords.words(of: [late, early]).map(\.text) == ["a", "b"])
-    }
-
     // MARK: - Split
 
     @Test("the halves join back with the whitespace removed at the cut")
@@ -76,15 +26,6 @@ struct PoemEditingTests {
         #expect(PoemSplit.split("abc\n\n", at: 4) == nil)
         #expect(PoemSplit.split("abc", at: 9) == nil)
         #expect(PoemSplit.split("a b", at: 1).map { [$0.first, $0.second] } == ["a", "b"])
-    }
-
-    // MARK: - Tags
-
-    @Test("tags are trimmed and deduplicated regardless of case")
-    func tags() {
-        #expect(PoemTags.parse(" love, Rilke ,, love,LOVE, night ") == ["love", "Rilke", "night"])
-        #expect(PoemTags.format(["a", "b"]) == "a, b")
-        #expect(PoemTags.parse("").isEmpty)
     }
 
     // MARK: - History
@@ -126,12 +67,10 @@ struct PoemEditingTests {
         var draft = PoemDraft(poem: poem)
         draft.title = "  "
         draft.poet = " Rumi "
-        draft.tagsText = "love, Love, night"
         draft.apply(to: poem, now: start.addingTimeInterval(5))
         #expect(!poem.userEdited)
         #expect(poem.title == nil)
         #expect(poem.poet == "Rumi")
-        #expect(poem.tags == ["love", "night"])
 
         draft.body = "line one\nline 2"
         draft.sourceNote = "Instagram reel"
@@ -144,7 +83,7 @@ struct PoemEditingTests {
         #expect(stored.sourceNote == "Instagram reel")
         #expect(stored.updatedAt == start.addingTimeInterval(9))
         #expect(PoemDraft(poem: stored) == PoemDraft(body: "line one\nline 2", poet: "Rumi",
-                                                     sourceNote: "Instagram reel", tagsText: "love, night"))
+                                                     sourceNote: "Instagram reel"))
     }
 
     @Test("splitting off keeps the Moment on the first poem and carries the details to the second (AC2)")
@@ -159,7 +98,6 @@ struct PoemEditingTests {
         moment.session = session
         let poem = moment.saveAsPoem(in: context)
         poem.poet = "Anon"
-        poem.tags = ["x"]
 
         let other = try #require(poem.splitOff(at: 8, in: context, now: start))
         try context.save()
@@ -170,7 +108,6 @@ struct PoemEditingTests {
         #expect(other.moment == nil)
         #expect(other.sourceSessionID == "s1")
         #expect(other.poet == "Anon")
-        #expect(other.tags == ["x"])
         #expect(other.title == nil)
         #expect(try context.fetchCount(FetchDescriptor<Poem>()) == 2)
         #expect(poem.splitOff(at: 0, in: context) == nil)
