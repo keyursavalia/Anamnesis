@@ -58,6 +58,23 @@ public struct CaptureActivityState: Codable, Hashable, Sendable {
     /// A capture is under way, or about to be (picker up).
     public var isActive: Bool { phase == .awaitingConsent || phase == .listening }
 
+    /// When the activity should stop claiming to be current (spec 017 R2), so a process that died mid-capture, or a
+    /// picker nobody answered, does not leave "Ready" or "Listening" up for hours. Ended phases never go stale.
+    /// Travels with the content the app already sends: no extra ActivityKit call (spec 007 R8).
+    public func staleDate(from now: Date) -> Date? {
+        switch phase {
+        case .awaitingConsent: now.addingTimeInterval(Self.consentStaleAfter)
+        case .listening: (startedAt ?? now).addingTimeInterval(Self.listeningStaleAfter)
+        case .saved, .failed: nil
+        }
+    }
+
+    /// The picker is answered in seconds; three minutes means it was abandoned or the app went away.
+    public static let consentStaleAfter: TimeInterval = 3 * 60
+    /// Far past a normal scrolling session (soak runs were 30 min, F-041); the view then asks to check, it keeps the
+    /// timer.
+    public static let listeningStaleAfter: TimeInterval = 2 * 60 * 60
+
     /// How long the ended activity stays on the Lock Screen (R6): 15 min once saved, otherwise gone at once.
     public var dismissalDelay: TimeInterval { phase == .saved ? 15 * 60 : 0 }
 
