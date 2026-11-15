@@ -2,13 +2,15 @@ import AnamnesisKit
 import SwiftData
 import SwiftUI
 
-/// Fix and annotate a saved poem (spec 011, PRD M5). Presented as a sheet; unsaved changes ask before closing.
+/// Fix and annotate a saved poem (spec 011, PRD M5; restyled in spec 015 R6, simplified in spec 016: no tags, no
+/// unsure-word hint, Source takes a link). Presented as a sheet from the poem; unsaved changes ask before closing.
 struct PoemEditorView: View {
     @Environment(\.modelContext) private var context
     @Environment(\.dismiss) private var dismiss
     @State private var model: PoemEditorModel
     @State private var confirmingClose = false
     @State private var errorText: String?
+    @State private var savedCount = 0
 
     init(poem: Poem) {
         _model = State(initialValue: PoemEditorModel(poem: poem))
@@ -19,31 +21,36 @@ struct PoemEditorView: View {
             Form {
                 Section {
                     TextEditor(text: $model.text, selection: $model.selection)
-                        .frame(minHeight: 280)
+                        .font(Theme.verse(.title3))
+                        .lineSpacing(5)
+                        .frame(minHeight: 300)
                         .accessibilityLabel("Poem text")
                 } header: {
-                    Text("Poem")
-                } footer: {
-                    Text("Orange words were unsure in the transcript; they turn normal once you change them. "
-                         + "Put the cursor between two poems and tap Split here to make two.")
+                    Eyebrow("Poem")
                 }
-                Section("Details") {
-                    TextField("Title (the first line is used when empty)", text: $model.draft.title)
-                    TextField("Poet", text: $model.draft.poet)
+                .listRowBackground(Theme.surface)
+                Section {
+                    field("Title", prompt: "The first line, if left empty", text: $model.draft.title)
+                    field("Poet", prompt: "Who wrote it", text: $model.draft.poet)
                         .textContentType(.name)
-                    TextField("Source, e.g. Instagram reel", text: $model.draft.sourceNote)
-                    TextField("Tags, comma-separated", text: $model.draft.tagsText)
-                        .textInputAutocapitalization(.never)
+                    sourceField
+                } header: {
+                    Eyebrow("Details")
+                } footer: {
+                    Text("Paste the reel’s link to open the same poem again later, in whichever app it came from.")
+                        .font(.footnote)
                 }
-                if let errorText {
-                    Text(errorText).font(.callout).foregroundStyle(.red)
-                }
+                .listRowBackground(Theme.surface)
+                if let errorText { ErrorLine(errorText).listRowBackground(Color.clear) }
             }
+            .paperBackground()
             .navigationTitle("Edit poem")
             .navigationBarTitleDisplayMode(.inline)
             .toolbar { toolbar }
+            .tint(Theme.ember)
             .onChange(of: model.text) { model.textDidChange() }
             .onChange(of: model.draft) { model.draftDidChange() }
+            .sensoryFeedback(.success, trigger: savedCount)
             .confirmationDialog("Save your changes?", isPresented: $confirmingClose, titleVisibility: .visible) {
                 Button("Save") { saveAndClose() }
                 Button("Discard changes", role: .destructive) { dismiss() }
@@ -51,6 +58,41 @@ struct PoemEditorView: View {
             }
         }
         .interactiveDismissDisabled(model.isDirty)
+    }
+
+    /// A link (or a note). Paste fills it straight from the clipboard; the system asks no permission for PasteButton.
+    private var sourceField: some View {
+        LabeledContent {
+            HStack(spacing: 8) {
+                TextField("Source", text: $model.draft.sourceNote, prompt: Text("Link to the reel"))
+                    .multilineTextAlignment(.trailing)
+                    .keyboardType(.URL)
+                    .textContentType(.URL)
+                    .textInputAutocapitalization(.never)
+                    .autocorrectionDisabled()
+                if model.draft.sourceNote.isEmpty {
+                    PasteButton(payloadType: String.self) { strings in
+                        guard let text = strings.first?.trimmingCharacters(in: .whitespacesAndNewlines) else { return }
+                        model.draft.sourceNote = text
+                    }
+                    .labelStyle(.iconOnly)
+                    .buttonBorderShape(.capsule)
+                    .controlSize(.small)
+                    .tint(Theme.ember)
+                }
+            }
+        } label: {
+            Text("Source").foregroundStyle(Theme.inkSecondary)
+        }
+    }
+
+    private func field(_ title: String, prompt: String, text: Binding<String>) -> some View {
+        LabeledContent {
+            TextField(title, text: text, prompt: Text(prompt))
+                .multilineTextAlignment(.trailing)
+        } label: {
+            Text(title).foregroundStyle(Theme.inkSecondary)
+        }
     }
 
     @ToolbarContentBuilder
@@ -61,7 +103,7 @@ struct PoemEditorView: View {
             }
         }
         ToolbarItem(placement: .confirmationAction) {
-            Button("Save") { saveAndClose() }
+            Button("Save") { saveAndClose() }.fontWeight(.semibold)
         }
         ToolbarItemGroup(placement: .bottomBar) {
             Button("Undo", systemImage: "arrow.uturn.backward") { model.undo() }
@@ -77,6 +119,7 @@ struct PoemEditorView: View {
     private func saveAndClose() {
         do {
             try model.save(in: context)
+            savedCount += 1
             dismiss()
         } catch {
             context.rollback()
