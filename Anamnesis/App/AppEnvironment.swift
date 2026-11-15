@@ -11,7 +11,7 @@ final class AppEnvironment {
     let fileLog: FileLog?
     /// nil only if Application Support is unavailable; capture then runs without spooling.
     let sessions: SessionIngestor?
-    /// The one capture path (spec 008 R1): the control, the Captures screen and the Lab all use it.
+    /// The one capture path (spec 008 R1): the control, the Listen screen and the Lab all use it.
     let capture: CaptureController
     /// nil when there is no spool directory (nothing to transcribe).
     let transcripts: TranscriptionQueue?
@@ -19,7 +19,9 @@ final class AppEnvironment {
     let library: LibraryStore
     /// `Application Support`; nil only if it is unavailable.
     let supportDirectory: URL?
-    /// Set when *Delete all data* finishes; the root view returns to Captures (spec 013 R3).
+    /// Whether *Capture poem* is placed, for the setup guide (spec 015 R9).
+    let controlCenter: ControlCenterStatus
+    /// Set when *Delete all data* finishes; the root view returns to Listen (spec 013 R3).
     var dataDeletedAt: Date?
     @ObservationIgnored private var launchObserver: (any NSObjectProtocol)?
     @ObservationIgnored private var captureEventsTask: Task<Void, Never>?
@@ -53,6 +55,7 @@ final class AppEnvironment {
         self.capture = capture
         let library = LibraryStore(directory: support, log: AppLog(category: .ui, fileLog: fileLog))
         self.library = library
+        controlCenter = ControlCenterStatus(log: AppLog(category: .ui, fileLog: fileLog))
         transcripts = sessions.map {
             TranscriptionQueue(sessions: $0, library: library, capture: capture,
                                log: AppLog(category: .transcribe, fileLog: fileLog))
@@ -86,21 +89,11 @@ final class AppEnvironment {
         var errorDescription: String? { "Stop the capture first." }
     }
 
-    struct StorageUsage: Sendable {
-        var captures: Int64
-        var library: Int64
-        var diagnostics: Int64
-    }
-
-    /// Sizes for Settings, read off the main actor.
-    func storageUsage() async -> StorageUsage? {
+    /// The library's size on disk for App settings (spec 016 R12 shows only this), read off the main actor.
+    func librarySize() async -> Int64? {
         guard let support = supportDirectory else { return nil }
         return await Task.detached {
-            StorageUsage(
-                captures: AppDataFiles.size(of: support.appending(path: "Spool")),
-                library: LibraryStore.files(in: support).reduce(0) { $0 + AppDataFiles.size(of: $1) },
-                diagnostics: AppDataFiles.size(of: support.appending(path: "Logs"))
-                    + AppDataFiles.size(of: support.appending(path: "Probes")))
+            LibraryStore.files(in: support).reduce(0) { $0 + AppDataFiles.size(of: $1) }
         }.value
     }
 
@@ -123,7 +116,7 @@ final class AppEnvironment {
 
     /// The latest control/deep-link launch (spec 005); the capture screen reacts when it changes.
     var launchRequest: LaunchRequest?
-    /// Set by `anamnesis://session?id=` (spec 008 R9); the Captures screen opens it and clears it.
+    /// Set by `anamnesis://session?id=` (spec 008 R9); the root shows Listen, where the capture's card is.
     var openSessionID: String?
 
     func open(_ url: URL) {
