@@ -7,7 +7,7 @@ import SwiftData
 final class LibraryStore {
     let container: ModelContainer
     let importer: LibraryImporter
-    /// Shown on the Captures screen when the on-disk store could not be opened.
+    /// Shown on the Listen screen when the on-disk store could not be opened.
     let loadError: String?
 
     init(directory: URL?, log: AppLog) {
@@ -33,7 +33,8 @@ final class LibraryStore {
     }
 
     /// Brings the store up to date with the spool: new sessions, audio/duration, and any `transcript.json` the
-    /// store has not imported yet (sessions transcribed before spec 009, or a crash between write and import).
+    /// store has not imported yet (sessions transcribed before spec 009, or a crash between write and import); then
+    /// keeps any Moment still waiting from before spec 016 as a poem.
     func sync(with summaries: [SpoolSessionSummary], log: AppLog) async {
         let importer = importer
         do {
@@ -48,6 +49,9 @@ final class LibraryStore {
                 log.notice("library import session=\(transcript.sessionID) outcome=\(outcome)")
             }
             if inserted > 0 { log.notice("library sessions inserted=\(inserted)") }
+            // Spec 016 R1: Moments that waited for the removed review step go straight to the library.
+            let kept = try await importer.keepPendingMoments()
+            if kept > 0 { log.notice("library kept pending Moments=\(kept)") }
         } catch {
             log.error("library sync failed: \(error.localizedDescription)")
         }
