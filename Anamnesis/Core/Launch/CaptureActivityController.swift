@@ -2,10 +2,12 @@
 @preconcurrency import ActivityKit
 import AnamnesisKit
 import Foundation
+import UIKit
 
 /// Drives the capture Live Activity (spec 007) from capture events, next to `CaptureControlSync`. The control's
 /// intent starts it (`awaitingConsent`, R2); a capture started inside the app gets one at `started`. At most three
-/// calls per capture: request, `listening`, end (R8). Every call is logged (R10); a failure never touches capture.
+/// calls per capture: request, `listening`, end (R8), plus one alert update when a stop from outside the app is
+/// announced (spec 018). Every call is logged (R10); a failure never touches capture.
 ///
 /// `Activity` is not `Sendable`, so the calls run off the main actor in one ordered chain (an update never overtakes
 /// the end that follows it), each looking its activities up afresh.
@@ -43,7 +45,7 @@ final class CaptureActivityController {
                 return
             }
             for extra in current.dropLast() { await Self.end(extra, with: nil, dismissal: .immediate, log: log) }
-            await kept.update(ActivityContent(state: state, staleDate: nil))
+            await kept.update(ActivityContent(state: state, staleDate: state.staleDate(from: Date())))
             log.notice("activity updated id=\(kept.id) phase=\(state.phase.rawValue) "
                        + "activityState=\(String(describing: kept.activityState))")
         }
@@ -60,21 +62,46 @@ final class CaptureActivityController {
     }
 
     /// Any stop, including from the recording indicator (R3): `saved` for 15 min, or `failed` and gone (R6).
-    func captureStopped(sessionID: String?, capturedSeconds: Double) {
+    ///
+    /// `announce` (spec 018, owner: "like Shazam"): when the stop came from outside the app, a saved capture is first
+    /// updated with an alert, so the Dynamic Island expands into the *Poem captured · Open* card (a banner on
+    /// iPhones without one), and ended `announceSeconds` later; `end` cannot carry an alert, and ending at once would
+    /// cut the card short. A background task keeps the process alive for that wait. With the app in front there is
+    /// nothing to announce: the activity ends at once, as before.
+    func captureStopped(sessionID: String?, capturedSeconds: Double, announce: Bool) {
         let state = CaptureActivityState.stopped(sessionID: sessionID, capturedSeconds: capturedSeconds)
         let dismissal: ActivityUIDismissalPolicy = state.dismissalDelay > 0
             ? .after(Date().addingTimeInterval(state.dismissalDelay)) : .immediate
+        let alert = announce && state.phase == .saved ? Self.announcement(for: state) : nil
+        // Ended by the chain well inside the ~30 s the system grants; no expiration handler needed for an 8 s wait.
+        let keepAlive = alert.map { _ in UIApplication.shared.beginBackgroundTask(withName: "activity-announce") }
         enqueue { log in
             let current = CaptureActivity.activities
-            guard !current.isEmpty else {
-                log.notice("activity: none to end at stop")
-                return
+            if current.isEmpty { log.notice("activity: none to end at stop") }
+            let content = ActivityContent(state: state, staleDate: nil)
+            if let alert, !current.isEmpty {
+                for activity in current { await activity.update(content, alertConfiguration: alert) }
+                log.notice("activity announced saved capture (\(state.formattedDuration ?? "?"))")
+                try? await Task.sleep(for: .seconds(Self.announceSeconds))
             }
             for activity in current {
-                await Self.end(activity, with: ActivityContent(state: state, staleDate: nil), dismissal: dismissal,
-                               log: log)
+                await Self.end(activity, with: content, dismissal: dismissal, log: log)
+            }
+            if let keepAlive {
+                await MainActor.run { UIApplication.shared.endBackgroundTask(keepAlive) }
             }
         }
+    }
+
+    /// How long the expanded card stays in the island before the activity ends (the Lock Screen keeps it 15 min).
+    static let announceSeconds = 8.0
+
+    /// The banner on iPhones without a Dynamic Island; on those with one, the island shows the expanded view.
+    private static func announcement(for state: CaptureActivityState) -> AlertConfiguration {
+        let length = state.formattedDuration ?? ""
+        return AlertConfiguration(title: "Poem captured",
+                                  body: "\(length) saved. Open Anamnesis to add it to your Library.",
+                                  sound: .default)
     }
 
     // MARK: - ActivityKit calls
@@ -95,7 +122,8 @@ final class CaptureActivityController {
         }
         do {
             let activity = try Activity.request(
-                attributes: CaptureActivityAttributes(), content: ActivityContent(state: state, staleDate: nil))
+                attributes: CaptureActivityAttributes(),
+                content: ActivityContent(state: state, staleDate: state.staleDate(from: Date())))
             log.notice("activity requested id=\(activity.id) phase=\(state.phase.rawValue)")
         } catch {
             log.error("activity request failed phase=\(state.phase.rawValue): \(error.localizedDescription)")
