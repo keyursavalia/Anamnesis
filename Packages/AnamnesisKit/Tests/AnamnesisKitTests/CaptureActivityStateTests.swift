@@ -43,6 +43,17 @@ struct CaptureActivityStateTests {
         #expect(state.dismissalDelay == 0)
     }
 
+    @Test("ready goes stale after 3 min, listening 2 h after it started, ended phases never")
+    func staleDates() {
+        let now = Date(timeIntervalSince1970: 1_794_000_000)
+        let started = now.addingTimeInterval(-600)
+        #expect(CaptureActivityState.awaitingConsent.staleDate(from: now) == now.addingTimeInterval(180))
+        #expect(CaptureActivityState.listening(since: started, sessionID: "s").staleDate(from: now)
+                == started.addingTimeInterval(7200))
+        #expect(CaptureActivityState.stopped(sessionID: "s", capturedSeconds: 30).staleDate(from: now) == nil)
+        #expect(CaptureActivityState.stopped(sessionID: nil, capturedSeconds: 0).staleDate(from: now) == nil)
+    }
+
     @Test("only awaiting consent and listening are active")
     func active() {
         #expect(CaptureActivityState.awaitingConsent.isActive)
