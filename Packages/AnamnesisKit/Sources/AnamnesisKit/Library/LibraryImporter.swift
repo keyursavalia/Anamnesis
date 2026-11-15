@@ -59,10 +59,11 @@ public struct SessionSnapshot: Sendable, Equatable {
 @ModelActor
 public actor LibraryImporter {
     public enum Outcome: Sendable, Equatable {
+        /// New Moments stored, each kept as a poem at once (spec 016 R1: no review step).
         case imported(moments: Int)
         /// The same transcript version was imported before.
         case alreadyImported
-        /// A Moment was already reviewed: Moments kept, metrics and state updated.
+        /// The session's Moments already have poems: Moments kept, metrics and state updated.
         case keptReviewedMoments
     }
 
@@ -112,6 +113,7 @@ public actor LibraryImporter {
                 let moment = MomentRecord(draft)
                 modelContext.insert(moment)
                 moment.session = session
+                keep(moment, of: session)
             }
         }
         session.state = .transcribed
@@ -125,6 +127,27 @@ public actor LibraryImporter {
         if session.durationSec <= 0 { session.durationSec = transcript.metrics.audioSec }
         try modelContext.save()
         return reviewed ? .keptReviewedMoments : .imported(moments: transcript.moments.count)
+    }
+
+    /// Keeps every Moment still waiting for the review step that spec 016 removed, so captures transcribed before
+    /// it reach the library too. Dismissed Moments stay dismissed: that was the user's choice. Returns the number of
+    /// poems made.
+    @discardableResult
+    public func keepPendingMoments() throws -> Int {
+        let new = MomentReview.new.rawValue
+        let pending = try modelContext.fetch(FetchDescriptor<MomentRecord>(predicate: #Predicate {
+            $0.reviewRaw == new
+        }))
+        for moment in pending { keep(moment, of: moment.session) }
+        if modelContext.hasChanges { try modelContext.save() }
+        return pending.count
+    }
+
+    /// The poem is dated when it was heard (capture start + the Moment's offset), so a capture's poems keep the
+    /// order they were spoken in and the library's "newest" means newest heard.
+    private func keep(_ moment: MomentRecord, of session: CaptureSession?) {
+        let heardAt = session.map { $0.startedAt.addingTimeInterval(moment.startSec) } ?? Date()
+        moment.saveAsPoem(in: modelContext, now: heardAt)
     }
 
     public func recordFailure(sessionID: String, text: String) throws {
