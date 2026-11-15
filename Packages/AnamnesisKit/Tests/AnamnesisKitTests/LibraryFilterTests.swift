@@ -12,10 +12,8 @@ struct LibraryFilterTests {
         let context = ModelContext(try ModelContainer.library(at: nil))
         let rilke = Poem(body: "über die Nacht\nzweite Zeile", createdAt: start)
         rilke.poet = "Rilke"
-        rilke.tags = ["Night"]
         let cafe = Poem(body: "morning light", createdAt: start.addingTimeInterval(10))
         cafe.title = "Café"
-        cafe.tags = ["love", "night"]
         let road = Poem(body: "\n  a quiet road\nends here", createdAt: start.addingTimeInterval(20))
         road.poet = "Anon"
         for poem in [rilke, cafe, road] { context.insert(poem) }
@@ -38,13 +36,13 @@ struct LibraryFilterTests {
         #expect(try titles(context, LibraryFilter()) == ["a quiet road", "Café", "über die Nacht"])
     }
 
-    @Test("poet and tag filters combine with search")
+    @Test("the poet filter combines with search")
     func filters() throws {
         let context = try makeStore()
         #expect(try titles(context, LibraryFilter(poet: "Anon")) == ["a quiet road"])
-        #expect(try titles(context, LibraryFilter(tag: "night")) == ["Café", "über die Nacht"])
-        #expect(try titles(context, LibraryFilter(searchText: "light", tag: "NIGHT")) == ["Café"])
-        #expect(LibraryFilter(tag: "x").isFiltering)
+        #expect(try titles(context, LibraryFilter(searchText: "road", poet: "Anon")) == ["a quiet road"])
+        #expect(try titles(context, LibraryFilter(searchText: "light", poet: "Anon")).isEmpty)
+        #expect(LibraryFilter(poet: "x").isFiltering)
         #expect(!LibraryFilter(searchText: "  ").isFiltering)
     }
 
@@ -55,10 +53,9 @@ struct LibraryFilterTests {
         #expect(try titles(context, LibraryFilter(sort: .poet)) == ["a quiet road", "über die Nacht", "Café"])
     }
 
-    @Test("menus list distinct tags and poets")
+    @Test("the poet menu lists distinct poets")
     func menus() throws {
         let poems = try makeStore().fetch(FetchDescriptor<Poem>(sortBy: [SortDescriptor(\.createdAt)]))
-        #expect(LibraryFilter.tags(in: poems) == ["love", "Night"])
         #expect(LibraryFilter.poets(in: poems) == ["Anon", "Rilke"])
         #expect(poems[2].firstLines(2) == "a quiet road / ends here")
     }
@@ -81,7 +78,7 @@ struct LibraryFilterTests {
         #expect(elapsed < .milliseconds(200))
     }
 
-    @Test("deleting a poem keeps its Moment saved without a poem (AC2)")
+    @Test("deleting a poem keeps its Moment saved without a poem, so it is not kept again (AC2)")
     func deletePoem() throws {
         let context = ModelContext(try ModelContainer.library(at: nil))
         let draft = MomentDraft(index: 0, startSec: 0, endSec: 1, text: "a", poemText: "a", meanConfidence: nil,
