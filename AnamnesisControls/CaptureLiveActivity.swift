@@ -4,33 +4,57 @@ import AppIntents
 import SwiftUI
 import WidgetKit
 
-/// The capture Live Activity (spec 007 R7): Lock Screen and Dynamic Island. The app starts and updates it; this only
-/// draws the state. Animation comes from symbol effects, never from activity updates (R8).
+/// The capture Live Activity (spec 007 R7; restyled to the app's look in spec 017): Lock Screen and Dynamic Island.
+/// The app starts and updates it; this only draws the state. Animation comes from symbol effects and the
+/// self-ticking timer, never from activity updates (R8).
 ///
-/// Layout follows the HIG (Live Activities, rev. 2026-10): compact leading and trailing read as one piece of live
-/// information (waveform + elapsed time, one tint, Voice Memos-like); minimal shows the live waveform, not a logo;
-/// expanded is the compact view enlarged and wrapped around the camera, with one control; the Lock Screen repeats the
-/// expanded layout at the standard 14 pt margin.
+/// Look: the app's night palette (ink background, cream text, ember while live, sage once saved), titles and the
+/// timer in New York like the app's headings, and the app mark leading the Lock Screen. Layout follows the HIG:
+/// compact leading and trailing read as one piece (symbol + time), minimal is the live symbol, expanded is the
+/// compact view enlarged around the camera with one control, and the Lock Screen repeats it at a 16 pt margin.
 struct CaptureLiveActivity: Widget {
     var body: some WidgetConfiguration {
         ActivityConfiguration(for: CaptureActivityAttributes.self) { context in
-            CaptureLockScreenView(content: CaptureContent(context.state))
+            CaptureLockScreenView(content: CaptureContent(context.state, isStale: context.isStale),
+                                  url: context.state.sessionURL)
+                .activityBackgroundTint(ActivityPalette.ink.opacity(0.94))
+                .activitySystemActionForegroundColor(ActivityPalette.cream)
                 .widgetURL(context.state.sessionURL)
         } dynamicIsland: { context in
-            let content = CaptureContent(context.state)
+            let content = CaptureContent(context.state, isStale: context.isStale)
+            // Saved is the card the stop alert expands into (spec 018): one row, like Shazam's result. The other
+            // phases keep the spec 017 layout. Regions switch on the phase, so the builder needs no branches.
             return DynamicIsland {
                 DynamicIslandExpandedRegion(.leading) {
-                    CaptureTitle(content: content, font: .headline)
+                    if content.phase == .saved {
+                        SavedCardLeading(content: content)
+                    } else {
+                        HStack(spacing: 8) {
+                            ActivityMark(size: 26)
+                            CaptureTitle(content: content,
+                                         font: .system(.headline, design: .serif, weight: .semibold))
+                        }
                         .padding(.leading, 4)
+                    }
                 }
                 DynamicIslandExpandedRegion(.trailing) {
-                    CaptureValue(content: content, font: .title3)
-                        .padding(.trailing, 4)
+                    if content.phase == .saved {
+                        if let url = context.state.sessionURL {
+                            OpenAppPill(url: url)
+                                .frame(maxHeight: .infinity)
+                                .padding(.trailing, 6)
+                        }
+                    } else {
+                        CaptureValue(content: content, font: .system(.title3, design: .serif))
+                            .padding(.trailing, 4)
+                    }
                 }
                 DynamicIslandExpandedRegion(.bottom) {
-                    CaptureDetailRow(content: content)
-                        .padding(.horizontal, 4)
-                        .padding(.top, 6)
+                    if content.phase != .saved {
+                        CaptureDetailRow(content: content)
+                            .padding(.horizontal, 4)
+                            .padding(.top, 6)
+                    }
                 }
             } compactLeading: {
                 CaptureSymbol(content: content)
@@ -47,20 +71,29 @@ struct CaptureLiveActivity: Widget {
 
 // MARK: - Content
 
-/// Everything the views say per phase, in one place so every presentation tells the same story.
+/// Everything the views say per phase, in one place so every presentation tells the same story. A stale activity
+/// (spec 017 R2: the picker was never answered, or the app went away mid-capture) says so instead of pretending.
 private struct CaptureContent {
     let phase: CaptureActivityState.Phase
     let startedAt: Date?
     let duration: String?
+    let capturedSeconds: Double?
+    let isStale: Bool
 
-    init(_ state: CaptureActivityState) {
+    init(_ state: CaptureActivityState, isStale: Bool) {
         phase = state.phase
         startedAt = state.startedAt
         duration = state.formattedDuration
+        capturedSeconds = state.capturedSeconds
+        self.isStale = isStale
     }
 
     var tint: Color {
-        phase == .failed ? .secondary : .accentColor
+        switch phase {
+        case .awaitingConsent, .listening: ActivityPalette.ember
+        case .saved: ActivityPalette.sage
+        case .failed: ActivityPalette.secondary
+        }
     }
 
     var symbol: String {
@@ -73,26 +106,34 @@ private struct CaptureContent {
 
     var title: LocalizedStringKey {
         switch phase {
-        case .awaitingConsent: "Ready"
+        case .awaitingConsent: isStale ? "Not started" : "Ready"
         case .listening: "Listening"
-        case .saved: "Saved"
+        case .saved: "Poem captured"
         case .failed: "Nothing captured"
         }
     }
 
     var detail: LocalizedStringKey {
         switch phase {
-        case .awaitingConsent: "Confirm screen sharing to start"
-        case .listening: "Audio stays on this device"
-        case .saved: "Open Anamnesis to transcribe"
+        case .awaitingConsent: isStale ? "Tap Capture poem to try again" : "Choose Share Entire Screen to start"
+        case .listening: isStale ? "Still listening? Open Anamnesis to check" : "Audio stays on this device"
+        case .saved: "Open Anamnesis to add it to your Library"
         case .failed: "No audio was playing"
         }
     }
 
-    /// Lock icon only where the line is the privacy promise.
-    var detailSymbol: String? { phase == .listening ? "lock.fill" : nil }
+    var detailSymbol: String? {
+        switch phase {
+        case .listening: isStale ? "questionmark.circle" : "lock.fill"
+        case .saved: "books.vertical.fill"
+        case .awaitingConsent, .failed: nil
+        }
+    }
 
     var showsStop: Bool { phase == .listening }
+    /// "4:07 of audio": the second line of the saved card, where Shazam puts the artist.
+    var savedSubtitle: LocalizedStringKey? { duration.map { "\($0) of audio" } }
+    var isLive: Bool { phase == .listening && !isStale }
 }
 
 // MARK: - Pieces
@@ -104,9 +145,8 @@ private struct CaptureSymbol: View {
     var body: some View {
         Image(systemName: content.symbol)
             .fontWeight(.semibold)
-            .foregroundStyle(content.phase == .awaitingConsent
-                             ? AnyShapeStyle(.secondary) : AnyShapeStyle(content.tint))
-            .symbolEffect(.variableColor.iterative, options: .repeating, isActive: content.phase == .listening)
+            .foregroundStyle(content.phase == .awaitingConsent ? ActivityPalette.secondary : content.tint)
+            .symbolEffect(.variableColor.iterative, options: .repeating, isActive: content.isLive)
             .accessibilityLabel(content.title)
     }
 }
@@ -119,11 +159,12 @@ private struct CaptureTitle: View {
     var body: some View {
         HStack(spacing: 6) {
             CaptureSymbol(content: content)
+                .font(.subheadline)
             Text(content.title)
-                .foregroundStyle(.primary)
+                .font(font)
+                .foregroundStyle(ActivityPalette.cream)
                 .lineLimit(1)
         }
-        .font(font)
     }
 }
 
@@ -138,7 +179,11 @@ private struct CaptureValue: View {
             case .listening:
                 if let startedAt = content.startedAt { CaptureTimer(startedAt: startedAt) }
             case .saved:
-                if let duration = content.duration { Text(duration) }
+                if let duration = content.duration {
+                    Text(duration)
+                        .accessibilityLabel(Text(Duration.seconds(content.capturedSeconds ?? 0)
+                            .formatted(.units(allowed: [.hours, .minutes, .seconds], width: .wide))))
+                }
             case .awaitingConsent, .failed:
                 EmptyView()
             }
@@ -176,11 +221,11 @@ private struct CaptureCompactTrailing: View {
         if isLimitedInWidth {
             EmptyView()
         } else if content.phase == .awaitingConsent {
-            Text("Ready")
+            Text(content.title)
                 .font(.footnote.weight(.semibold))
-                .foregroundStyle(.secondary)
+                .foregroundStyle(ActivityPalette.secondary)
         } else {
-            CaptureValue(content: content, font: .subheadline)
+            CaptureValue(content: content, font: .system(.subheadline, design: .serif))
         }
     }
 }
@@ -191,58 +236,150 @@ private struct CaptureDetailRow: View {
 
     var body: some View {
         HStack(alignment: .center, spacing: 12) {
-            Group {
-                if let symbol = content.detailSymbol {
-                    Label(content.detail, systemImage: symbol)
-                } else {
-                    Text(content.detail)
-                }
-            }
-            .font(.subheadline.weight(.medium))
-            .foregroundStyle(.secondary)
-            .lineLimit(1)
-            .frame(maxWidth: .infinity, alignment: .leading)
-
+            CaptureDetail(content: content)
+                .frame(maxWidth: .infinity, alignment: .leading)
             if content.showsStop {
-                CaptureStopButton(tint: content.tint)
+                CaptureStopButton()
             }
         }
     }
 }
 
-/// Stop only while listening: it cannot dismiss the picker, so a confirm after it still started a capture (F-052).
-private struct CaptureStopButton: View {
-    let tint: Color
+private struct CaptureDetail: View {
+    let content: CaptureContent
 
+    var body: some View {
+        Group {
+            if let symbol = content.detailSymbol {
+                Label(content.detail, systemImage: symbol)
+            } else {
+                Text(content.detail)
+            }
+        }
+        .font(.footnote.weight(.medium))
+        .foregroundStyle(ActivityPalette.secondary)
+        .lineLimit(2)
+    }
+}
+
+/// Stop only while listening: it cannot dismiss the picker, so a confirm after it still started a capture (F-052).
+/// A filled ember capsule like the app's main buttons.
+private struct CaptureStopButton: View {
     var body: some View {
         Button(intent: StopCaptureIntent()) {
             Label("Stop", systemImage: "stop.fill")
                 .font(.subheadline.weight(.semibold))
+                .foregroundStyle(.white)
                 .padding(.horizontal, 14)
-                .padding(.vertical, 7)
-                .background(tint.opacity(0.2), in: Capsule())
+                .padding(.vertical, 8)
+                .background(ActivityPalette.emberFill, in: .capsule)
         }
         .buttonStyle(.plain)
-        .foregroundStyle(tint)
+        .accessibilityHint("Stops the capture and saves it")
+    }
+}
+
+// MARK: - Saved card (spec 018)
+
+/// The mark where Shazam shows artwork, then the title and the length in two lines.
+private struct SavedCardLeading: View {
+    let content: CaptureContent
+
+    var body: some View {
+        HStack(spacing: 12) {
+            ActivityMark(size: 52)
+            VStack(alignment: .leading, spacing: 2) {
+                Text(content.title)
+                    .font(.system(.headline, design: .serif, weight: .semibold))
+                    .foregroundStyle(ActivityPalette.cream)
+                    .lineLimit(2)
+                    .minimumScaleFactor(0.85)
+                if let subtitle = content.savedSubtitle {
+                    Text(subtitle)
+                        .font(.subheadline)
+                        .foregroundStyle(ActivityPalette.secondary)
+                        .lineLimit(1)
+                }
+            }
+        }
+        .frame(maxHeight: .infinity, alignment: .center)
+        .padding(.leading, 6)
+        .accessibilityElement(children: .combine)
+    }
+}
+
+/// The tinted pill, like Shazam's Music button: the app's "A" and "Open", ember on a translucent ember capsule.
+/// A link, so it opens the app on the capture (which then transcribes it) without running an intent. A saved
+/// capture always has a session, so the link always has a target.
+private struct OpenAppPill: View {
+    let url: URL
+
+    var body: some View {
+        Link(destination: url) {
+            HStack(spacing: 4) {
+                Text(verbatim: "A")
+                    .font(.system(.subheadline, design: .serif, weight: .bold))
+                    .italic()
+                Text("Open")
+                    .font(.subheadline.weight(.semibold))
+            }
+            .foregroundStyle(ActivityPalette.ember)
+            .padding(.horizontal, 14)
+            .padding(.vertical, 7)
+            .background(ActivityPalette.emberFill.opacity(0.28), in: .capsule)
+        }
+        .accessibilityLabel("Open Anamnesis")
     }
 }
 
 // MARK: - Lock Screen
 
-/// The expanded layout at the standard 14 pt Lock Screen margin; height follows the content.
+/// The mark, title and detail on the leading side; the time and Stop on the trailing side. About 80 pt tall, well
+/// under the Lock Screen's ~160 pt.
 private struct CaptureLockScreenView: View {
     let content: CaptureContent
+    let url: URL?
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 8) {
-            HStack(alignment: .firstTextBaseline) {
-                CaptureTitle(content: content, font: .headline)
-                Spacer(minLength: 8)
-                CaptureValue(content: content, font: .title2)
+        HStack(alignment: .center, spacing: 12) {
+            ActivityMark(size: 44)
+            VStack(alignment: .leading, spacing: 4) {
+                CaptureTitle(content: content, font: .system(.headline, design: .serif, weight: .semibold))
+                CaptureDetail(content: content)
             }
-            CaptureDetailRow(content: content)
+            Spacer(minLength: 8)
+            VStack(alignment: .trailing, spacing: 8) {
+                CaptureValue(content: content, font: .system(.title2, design: .serif))
+                if content.showsStop { CaptureStopButton() }
+                if content.phase == .saved, let url { OpenAppPill(url: url) }
+            }
         }
-        .padding(14)
-        .activitySystemActionForegroundColor(.secondary)
+        .padding(16)
     }
+}
+
+// MARK: - Previews
+
+private let previewStart = Date().addingTimeInterval(-127)
+
+#Preview("Lock Screen", as: .content, using: CaptureActivityAttributes()) {
+    CaptureLiveActivity()
+} contentStates: {
+    CaptureActivityState.awaitingConsent
+    CaptureActivityState.listening(since: previewStart, sessionID: "preview")
+    CaptureActivityState.stopped(sessionID: "preview", capturedSeconds: 247)
+    CaptureActivityState.stopped(sessionID: nil, capturedSeconds: 0)
+}
+
+#Preview("Island expanded", as: .dynamicIsland(.expanded), using: CaptureActivityAttributes()) {
+    CaptureLiveActivity()
+} contentStates: {
+    CaptureActivityState.listening(since: previewStart, sessionID: "preview")
+    CaptureActivityState.stopped(sessionID: "preview", capturedSeconds: 247)
+}
+
+#Preview("Island compact", as: .dynamicIsland(.compact), using: CaptureActivityAttributes()) {
+    CaptureLiveActivity()
+} contentStates: {
+    CaptureActivityState.listening(since: previewStart, sessionID: "preview")
 }
