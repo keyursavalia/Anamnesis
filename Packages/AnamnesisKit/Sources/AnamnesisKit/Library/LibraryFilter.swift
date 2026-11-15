@@ -5,24 +5,21 @@ public enum LibrarySort: String, Sendable, CaseIterable {
     case newest, title, poet
 }
 
-/// What the Library shows (spec 012 R1–R3). Search and poet run in the store predicate; the tag filter and the
-/// sorts run in memory, because `tags.contains` in a predicate crashes SwiftData (F-047) and the title sort uses
-/// the first line when there is no title.
+/// What the Library shows (spec 012 R1–R3; spec 016 R3 removed tags). Search and poet run in the store
+/// predicate; the sorts run in memory, because the title sort uses the first line when there is no title.
 public struct LibraryFilter: Sendable, Equatable {
     public var searchText: String
-    public var tag: String?
     public var poet: String?
     public var sort: LibrarySort
 
-    public init(searchText: String = "", tag: String? = nil, poet: String? = nil, sort: LibrarySort = .newest) {
+    public init(searchText: String = "", poet: String? = nil, sort: LibrarySort = .newest) {
         self.searchText = searchText
-        self.tag = tag
         self.poet = poet
         self.sort = sort
     }
 
     public var query: String { searchText.trimmingCharacters(in: .whitespacesAndNewlines) }
-    public var isFiltering: Bool { !query.isEmpty || tag != nil || poet != nil }
+    public var isFiltering: Bool { !query.isEmpty || poet != nil }
 
     /// Body, title and poet, case- and diacritic-insensitive (R2), and the poet filter (R3).
     public var predicate: Predicate<Poem> {
@@ -38,12 +35,9 @@ public struct LibraryFilter: Sendable, Equatable {
         }
     }
 
-    /// The tag filter and the sort, on the poems the predicate returned.
+    /// The sort, on the poems the predicate returned.
     public func refine(_ poems: [Poem]) -> [Poem] {
-        let tagged = tag.map { tag in
-            poems.filter { $0.tags.contains { $0.caseInsensitiveCompare(tag) == .orderedSame } }
-        } ?? poems
-        return tagged.sorted { lhs, rhs in
+        poems.sorted { lhs, rhs in
             switch sort {
             case .newest:
                 return lhs.createdAt > rhs.createdAt
@@ -60,12 +54,6 @@ public struct LibraryFilter: Sendable, Equatable {
                 }
             }
         }
-    }
-
-    /// Distinct tags for the filter menu, first spelling kept, sorted.
-    public static func tags(in poems: [Poem]) -> [String] {
-        PoemTags.parse(PoemTags.format(poems.flatMap(\.tags)))
-            .sorted { $0.localizedStandardCompare($1) == .orderedAscending }
     }
 
     public static func poets(in poems: [Poem]) -> [String] {
