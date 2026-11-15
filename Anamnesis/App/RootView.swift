@@ -2,28 +2,29 @@ import AnamnesisKit
 import SwiftData
 import SwiftUI
 
-/// Captures in every build (spec 008 R2); DEBUG adds the Lab (D-014).
+/// Listen, Library and Settings in every build (spec 015 R1); DEBUG adds the Lab (D-014). The welcome shows once.
+/// No badge since spec 016: there is nothing left to review.
 struct RootView: View {
     enum TabID: Hashable {
-        case captures
+        case listen
         case library
         case settings
         case lab
     }
 
     @Environment(AppEnvironment.self) private var environment
-    @State private var tab = TabID.captures
-    /// Moments waiting for Save or Dismiss, across sessions (spec 010 R3).
-    @Query(filter: #Predicate<MomentRecord> { $0.reviewRaw == "new" }) private var newMoments: [MomentRecord]
+    @State private var tab = TabID.listen
+    @AppStorage("onboarding.completed") private var onboardingCompleted = false
+    /// The Control Center guide, offered once right after the welcome (spec 015 R9).
+    @State private var showsControlSetup = false
 
     var body: some View {
         TabView(selection: $tab) {
-            Tab("Captures", systemImage: "waveform", value: TabID.captures) {
-                CapturesView()
+            Tab("Listen", systemImage: "waveform", value: TabID.listen) {
+                ListenView { tab = .library }
             }
-            .badge(newMoments.count)
             Tab("Library", systemImage: "books.vertical", value: TabID.library) {
-                LibraryView()
+                LibraryView { tab = .listen }
             }
             Tab("Settings", systemImage: "gearshape", value: TabID.settings) {
                 SettingsView()
@@ -34,10 +35,16 @@ struct RootView: View {
             }
             #endif
         }
-        .onChange(of: environment.openSessionID) { _, id in
-            if id != nil { tab = .captures }
+        .tint(Theme.ember)
+        .fullScreenCover(isPresented: Binding(get: { !onboardingCompleted }, set: { onboardingCompleted = !$0 }),
+                         onDismiss: offerControlSetup) {
+            OnboardingView { onboardingCompleted = true }
         }
-        .onChange(of: environment.dataDeletedAt) { tab = .captures }
+        .sheet(isPresented: $showsControlSetup) { ControlSetupSheet() }
+        .onChange(of: environment.openSessionID) { _, id in
+            if id != nil { tab = .listen }
+        }
+        .onChange(of: environment.dataDeletedAt) { tab = .listen }
         #if DEBUG
         // DEBUG keeps the spec 005 flow: rungs 1–2 land on Lab → Capture. Rung 3 never leaves the current screen.
         .onChange(of: environment.launchRequest?.id) {
@@ -45,6 +52,13 @@ struct RootView: View {
             tab = .lab
         }
         #endif
+    }
+
+    private func offerControlSetup() {
+        Task {
+            await environment.controlCenter.refresh()
+            if !environment.controlCenter.isAdded { showsControlSetup = true }
+        }
     }
 }
 
