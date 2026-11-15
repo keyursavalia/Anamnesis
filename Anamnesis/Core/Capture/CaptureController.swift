@@ -9,7 +9,15 @@ import UIKit
 /// `capture.json` (R8).
 @Observable
 final class CaptureController {
+    /// What the capture screen shows (spec 015): the system sheet is up, or audio is arriving since a date.
+    enum Phase: Equatable {
+        case idle
+        case choosing
+        case capturing(since: Date)
+    }
+
     private(set) var lastError: String?
+    private(set) var phase = Phase.idle
 
     private let log: AppLog
     let activity: CaptureActivityController
@@ -107,6 +115,7 @@ final class CaptureController {
     private func handle(_ event: CaptureEvent) {
         syncControl(with: event)
         syncActivity(with: event)
+        updatePhase(with: event)
         switch event {
         case .started: recordStart()
         case .stopped(let run): recordStop(reason: run.report.stop?.reason.rawValue ?? "unknown")
@@ -115,6 +124,15 @@ final class CaptureController {
         case .pickerPresented, .pickerCancelled, .filterReceived: break
         }
         for subscriber in subscribers.values { subscriber.yield(event) }
+    }
+
+    private func updatePhase(with event: CaptureEvent) {
+        switch event {
+        case .pickerPresented: phase = .choosing
+        case .started: phase = .capturing(since: Date())
+        case .pickerCancelled, .pickerFailed, .startFailed, .stopped: phase = .idle
+        case .filterReceived: break
+        }
     }
 
     /// Keeps the *Capture poem* control in step with the stream, whichever way it started or ended (spec 005 Step 6).
@@ -139,9 +157,11 @@ final class CaptureController {
         case .pickerFailed, .startFailed:
             activity.endAll(reason: "failed")
         case .stopped(let run):
+            // Announced (the Shazam-style card) only when the user is elsewhere; in the app they see it already.
             activity.captureStopped(
                 sessionID: run.spoolManifest?.sessionID ?? run.report.config.spoolSessionID,
-                capturedSeconds: run.spoolManifest?.durationSec ?? run.report.counters.audioSecondsTotal)
+                capturedSeconds: run.spoolManifest?.durationSec ?? run.report.counters.audioSecondsTotal,
+                announce: UIApplication.shared.applicationState != .active)
         case .pickerPresented, .filterReceived:
             break
         }
