@@ -8,6 +8,10 @@ struct AnamnesisApp: App {
     private let environment = AppEnvironment.shared
     @Environment(\.scenePhase) private var scenePhase
 
+    init() {
+        Theme.applyAppearance()
+    }
+
     var body: some Scene {
         WindowGroup {
             RootView()
@@ -18,6 +22,7 @@ struct AnamnesisApp: App {
                     environment.drainLaunchMailbox()
                     environment.reloadControl()
                     Task { await environment.refreshSessions() }
+                    Task { await environment.controlCenter.refresh() }
                 }
                 .onOpenURL { environment.open($0) }
                 .modelContainer(environment.library.container)
