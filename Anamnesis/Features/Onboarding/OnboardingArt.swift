@@ -80,7 +80,7 @@ struct DriftingLine: View {
     }
 }
 
-/// A slice of Control Center: three dim tiles and *Capture poem*, which a fingertip taps; it lights up and listens.
+/// A slice of Control Center: three dim tiles and *Transcribe*, which a fingertip taps; it lights up and listens.
 struct ControlCenterMock: View {
     let animates: Bool
 
@@ -103,7 +103,7 @@ struct ControlCenterMock: View {
             }
         }
         .accessibilityElement()
-        .accessibilityLabel("Control Center with the Capture poem control turning on")
+        .accessibilityLabel("Control Center with the Transcribe control turning on")
     }
 
     private func tile(_ symbol: String) -> some View {
@@ -140,7 +140,7 @@ struct ControlCenterMock: View {
                     Image(systemName: isOn ? "waveform" : "text.quote")
                         .font(.title2.weight(.semibold))
                         .symbolEffect(.variableColor.iterative, options: .repeating, isActive: isOn && animates)
-                    Text(isOn ? "Listening" : "Capture poem")
+                    Text(isOn ? "Listening" : "Transcribe")
                         .font(.system(size: 9, weight: .semibold))
                 }
                 .foregroundStyle(isOn ? Night.ink : Night.cream)
