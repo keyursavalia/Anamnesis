@@ -10,27 +10,24 @@ enum ActivityPalette {
     static let secondary = Color(rgb: 0xC9BEAF)
     /// Ember for text and symbols on dark (the app's dark-mode accent).
     static let ember = Color(rgb: 0xF0785A)
-    /// Ember behind text: buttons and the mark.
+    /// Ember behind text: buttons and pills.
     static let emberFill = Color(rgb: 0xC24F30)
-    static let emberDeep = Color(rgb: 0xA8432A)
     static let sage = Color(rgb: 0x8CC09A)
 }
 
-/// The app mark (an italic New York "A" on an ember tile), the same drawing as the app's `AppMark`.
+/// The app mark: the app icon's artwork (`AppLogo` in this extension's catalog, a small copy of the app's) on an
+/// icon-shaped tile, the same as the app's `AppMark`. `circular` for the compact and minimal island, where a square's
+/// corner reaches past the island's curve; a circle sits concentric with it (HIG).
 struct ActivityMark: View {
     var size: CGFloat = 40
+    var circular = false
 
     var body: some View {
-        RoundedRectangle(cornerRadius: size * 0.27, style: .continuous)
-            .fill(LinearGradient(colors: [ActivityPalette.emberFill, ActivityPalette.emberDeep],
-                                 startPoint: .topLeading, endPoint: .bottomTrailing))
-            .overlay {
-                Text(verbatim: "A")
-                    .font(.system(size: size * 0.62, weight: .semibold, design: .serif))
-                    .italic()
-                    .foregroundStyle(.white)
-            }
+        Image("AppLogo")
+            .resizable()
+            .aspectRatio(contentMode: .fill)
             .frame(width: size, height: size)
+            .clipShape(circular ? AnyShape(.circle) : AnyShape(.rect(cornerRadius: size * 0.225, style: .continuous)))
             .accessibilityHidden(true)
     }
 }
