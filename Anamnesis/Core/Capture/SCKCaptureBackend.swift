@@ -7,7 +7,7 @@ import UIKit
 // ScreenCaptureKit in the host app (spec 001 §4.2, D-017); production since spec 008, owned by `CaptureController`.
 // Measures and spools (spec 002); does not transcribe.
 @Observable
-final class SCKCaptureBackend: SystemAudioCapturing {
+final class SCKCaptureBackend {
     /// Knobs the operator varies between runs; recorded in the report's `config`.
     struct Settings {
         var runLabel = ""
@@ -33,7 +33,8 @@ final class SCKCaptureBackend: SystemAudioCapturing {
         let rawDump: RawDumpSink?
         let spool: SegmentedSpoolWriter?
         let context: CaptureContextObserver
-        let flushTimer: DispatchSourceTimer
+        /// nil when reports are not kept (Release): nothing would ever read the flushed file.
+        let flushTimer: DispatchSourceTimer?
         let directory: URL
         let reportURL: URL
     }
@@ -96,6 +97,7 @@ final class SCKCaptureBackend: SystemAudioCapturing {
         recorder?.addMarker(kind, text: text)
     }
 
+    /// Stops capture and finalizes the run's report; nil if nothing was running.
     func stop() async -> ProbeRun? {
         guard let session, !isStoppingByRequest else { return nil }
         isStoppingByRequest = true
@@ -167,6 +169,8 @@ final class SCKCaptureBackend: SystemAudioCapturing {
         do {
             directory = try store.makeRunDirectory(label: label, startedAt: Date())
         } catch {
+            // No session exists yet, so `finish` will not end this presentation cycle (F-032 H2).
+            coordinator.endPresentation()
             eventSink.yield(.startFailed(CaptureError.storage(error.localizedDescription).localizedDescription))
             return
         }
@@ -184,7 +188,8 @@ final class SCKCaptureBackend: SystemAudioCapturing {
         let session = Session(
             stream: stream, output: output, recorder: recorder, rawDump: rawDump, spool: spool,
             context: CaptureContextObserver(recorder: recorder),
-            flushTimer: Self.makeFlushTimer(recorder: recorder, store: store, reportURL: reportURL),
+            flushTimer: keepsReports
+                ? Self.makeFlushTimer(recorder: recorder, store: store, reportURL: reportURL) : nil,
             directory: directory, reportURL: reportURL)
         self.session = session
         self.recorder = recorder
@@ -205,7 +210,6 @@ final class SCKCaptureBackend: SystemAudioCapturing {
                 reason: .error, errorDomain: error.domain, errorCode: error.code, errorDescription: description))
             return
         }
-        session.flushTimer.resume()
         isCapturing = true
         log.notice("capture started style=\(styleUsed)")
         eventSink.yield(.started)
@@ -225,13 +229,14 @@ final class SCKCaptureBackend: SystemAudioCapturing {
         isCapturing = false
         recorder = nil
         spool = nil
-        session.flushTimer.cancel()
+        session.flushTimer?.cancel()
         let report = session.recorder.finish(stop)
         // Both `finish` calls wait for pending file writes; keep that off the main actor. An abandoned spool
         // returns its unfinished manifest and writes nothing.
         let (rawDumpURL, spoolManifest) = await Task.detached {
             (session.rawDump?.finish(), session.spool?.finish())
         }.value
+        if let spool = session.spool, let spoolManifest { discardIfEmpty(spool.session, spoolManifest) }
         do {
             try store.write(report, to: session.reportURL)
         } catch {
@@ -304,6 +309,23 @@ final class SCKCaptureBackend: SystemAudioCapturing {
 
 }
 
+// MARK: - Empty sessions
+
+extension SCKCaptureBackend {
+    /// A stream that failed to start, or was stopped before its first buffer, leaves a finished session with no
+    /// audio: nothing to transcribe, and its library row would wait forever. Removed before `.stopped` is sent, so
+    /// no refresh ever sees it. An abandoned (simulated crash) session is left for recovery.
+    private func discardIfEmpty(_ session: SpoolSession, _ manifest: SpoolManifest) {
+        guard manifest.isFinishedEmpty, let spoolDirectory else { return }
+        do {
+            try spoolDirectory.delete(session)
+            log.notice("spool session discarded: no audio session=\(session.id)")
+        } catch {
+            log.error("empty spool session not removed session=\(session.id): \(error.localizedDescription)")
+        }
+    }
+}
+
 // MARK: - Report flush (G2)
 
 extension SCKCaptureBackend {
@@ -319,6 +341,9 @@ extension SCKCaptureBackend {
             if let reading = MemorySampler.read() { recorder.recordMemory(reading) }
             try? store.write(recorder.snapshot(), to: reportURL)
         }
+        // Activated now, not after the stream starts: releasing a timer that was never activated traps
+        // ("Release of an inactive object"), which a failed start (-3802) did when it cancelled it (review B1).
+        timer.activate()
         return timer
     }
 }
