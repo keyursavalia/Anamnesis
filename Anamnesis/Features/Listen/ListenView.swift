@@ -81,10 +81,13 @@ struct ListenView: View {
 
     // MARK: - Rows
 
+    /// Each message once: the text is the row's id, so two sources reporting the same error would collide.
     @ViewBuilder
     private var errors: some View {
-        ForEach([environment.capture.lastError, environment.library.loadError, deleteError].compactMap(\.self),
-                id: \.self) { ErrorLine($0).cardRow() }
+        let messages = [environment.capture.lastError, environment.library.loadError, deleteError]
+            .compactMap(\.self)
+            .reduce(into: [String]()) { if !$0.contains($1) { $0.append($1) } }
+        ForEach(messages, id: \.self) { ErrorLine($0).cardRow() }
     }
 
     /// Recordings still on their way, or failed. Each status is computed once, from one manifest lookup.
