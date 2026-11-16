@@ -2,8 +2,9 @@ import AnamnesisKit
 import SwiftData
 import SwiftUI
 
-/// Fix and annotate a saved poem (spec 011, PRD M5; restyled in spec 015 R6, simplified in spec 016: no tags, no
-/// unsure-word hint, Source takes a link). Presented as a sheet from the poem; unsaved changes ask before closing.
+/// Fix and annotate a transcript (spec 011, PRD M5; restyled in spec 015 R6, simplified in spec 016: no tags, no
+/// unsure-word hint, Source takes a link), or write one by hand from the Library (spec 020 R9): the same form, saved
+/// only when the user taps Save. Presented as a sheet; unsaved changes ask before closing.
 struct PoemEditorView: View {
     @Environment(\.modelContext) private var context
     @Environment(\.dismiss) private var dismiss
@@ -16,6 +17,11 @@ struct PoemEditorView: View {
         _model = State(initialValue: PoemEditorModel(poem: poem))
     }
 
+    /// A transcript not in the store yet; Save inserts it, Cancel leaves nothing behind.
+    init(newPoem: Poem) {
+        _model = State(initialValue: PoemEditorModel(poem: newPoem, isNew: true))
+    }
+
     var body: some View {
         NavigationStack {
             Form {
@@ -24,27 +30,27 @@ struct PoemEditorView: View {
                         .font(Theme.verse(.title3))
                         .lineSpacing(5)
                         .frame(minHeight: 300)
-                        .accessibilityLabel("Poem text")
+                        .accessibilityLabel("Transcript text")
                 } header: {
-                    Eyebrow("Poem")
+                    Eyebrow("Transcript")
                 }
                 .listRowBackground(Theme.surface)
                 Section {
                     field("Title", prompt: "The first line, if left empty", text: $model.draft.title)
-                    field("Poet", prompt: "Who wrote it", text: $model.draft.poet)
+                    field("Speaker", prompt: "Who said it", text: $model.draft.poet)
                         .textContentType(.name)
                     sourceField
                 } header: {
                     Eyebrow("Details")
                 } footer: {
-                    Text("Paste the reel’s link to open the same poem again later, in whichever app it came from.")
+                    Text("Paste the link to where you heard it, to open it again later in whichever app it came from.")
                         .font(.footnote)
                 }
                 .listRowBackground(Theme.surface)
                 if let errorText { ErrorLine(errorText).listRowBackground(Color.clear) }
             }
             .paperBackground()
-            .navigationTitle("Edit poem")
+            .navigationTitle(model.isNew ? "New transcript" : "Edit transcript")
             .navigationBarTitleDisplayMode(.inline)
             .toolbar { toolbar }
             .tint(Theme.ember)
@@ -52,7 +58,7 @@ struct PoemEditorView: View {
             .onChange(of: model.draft) { model.draftDidChange() }
             .sensoryFeedback(.success, trigger: savedCount)
             .confirmationDialog("Save your changes?", isPresented: $confirmingClose, titleVisibility: .visible) {
-                Button("Save") { saveAndClose() }
+                if model.canSave { Button("Save") { saveAndClose() } }
                 Button("Discard changes", role: .destructive) { dismiss() }
                 Button("Keep editing", role: .cancel) {}
             }
@@ -64,7 +70,7 @@ struct PoemEditorView: View {
     private var sourceField: some View {
         LabeledContent {
             HStack(spacing: 8) {
-                TextField("Source", text: $model.draft.sourceNote, prompt: Text("Link to the reel"))
+                TextField("Source", text: $model.draft.sourceNote, prompt: Text("Link to the media"))
                     .multilineTextAlignment(.trailing)
                     .keyboardType(.URL)
                     .textContentType(.URL)
@@ -103,7 +109,9 @@ struct PoemEditorView: View {
             }
         }
         ToolbarItem(placement: .confirmationAction) {
-            Button("Save") { saveAndClose() }.fontWeight(.semibold)
+            Button("Save") { saveAndClose() }
+                .fontWeight(.semibold)
+                .disabled(!model.canSave)
         }
         ToolbarItemGroup(placement: .bottomBar) {
             Button("Undo", systemImage: "arrow.uturn.backward") { model.undo() }
