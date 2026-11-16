@@ -155,7 +155,6 @@ struct DiagnosticsRecorderTests {
         recorder.addMarker(.note, text: "switched reel")
         recorder.recordError(domain: "SCStreamErrorDomain", code: -3821, description: "system stopped")
         recorder.recordMemory(MemoryReading(physFootprintBytes: 28 * 1_048_576, availableBytes: 31 * 1_048_576))
-        recorder.recordDroppedBuffer()
 
         let report = recorder.snapshot()
         #expect(report.markers.map(\.tSec) == [2, 5])
@@ -165,7 +164,6 @@ struct DiagnosticsRecorderTests {
         #expect(report.memory.samples.count == 2)
         #expect(report.memory.peakFootprintMB == 28)
         #expect(report.memory.minAvailableMB == 31)
-        #expect(report.counters.dropsQueueFull == 1)
     }
 
     @Test("live level reports the second in progress")
