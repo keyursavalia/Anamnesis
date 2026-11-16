@@ -96,8 +96,9 @@ final class TranscriptionQueue {
     }
 
     /// For a `modelNotInstalled` failure: the OS downloads the model (the only network use, R-11), then retries.
+    /// Joins a download already running (spec 020 R7) instead of starting a second one.
     func installModelAndRetry(_ id: String) async {
-        await assets.install(locale: Self.locale, config: Self.config)
+        await assets.ensureInstalled(locale: Self.locale, config: Self.config)
         await retry(id)
     }
 
