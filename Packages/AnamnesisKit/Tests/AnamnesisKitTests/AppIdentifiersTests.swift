@@ -8,10 +8,7 @@ struct AppIdentifiersTests {
         #expect(AppIdentifiers.appBundleID == "com.keyurdipakbhaisavalia.Anamnesis")
         #expect(AppIdentifiers.appGroupID == "group.com.keyurdipakbhaisavalia.Anamnesis")
         #expect(AppIdentifiers.logSubsystem == AppIdentifiers.appBundleID)
-        #expect(AppIdentifiers.broadcastBundleID == "com.keyurdipakbhaisavalia.Anamnesis.broadcast")
         #expect(AppIdentifiers.controlsBundleID == "com.keyurdipakbhaisavalia.Anamnesis.controls")
-        #expect(AppIdentifiers.DarwinNotification.sessionFinished
-            == "com.keyurdipakbhaisavalia.Anamnesis.session.finished")
         #expect(AppIdentifiers.urlScheme == "anamnesis")
         #expect(AppIdentifiers.ControlKind.capture == "com.keyurdipakbhaisavalia.Anamnesis.control.capture")
     }
