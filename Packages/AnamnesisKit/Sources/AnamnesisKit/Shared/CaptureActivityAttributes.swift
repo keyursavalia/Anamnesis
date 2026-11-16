@@ -75,7 +75,8 @@ public struct CaptureActivityState: Codable, Hashable, Sendable {
     /// timer.
     public static let listeningStaleAfter: TimeInterval = 2 * 60 * 60
 
-    /// How long the ended activity stays on the Lock Screen (R6): 15 min once saved, otherwise gone at once.
+    /// How long the ended activity stays on the Lock Screen (R6): 15 min once saved by a stop from outside the app,
+    /// cut short when the app comes forward; otherwise gone at once.
     public var dismissalDelay: TimeInterval { phase == .saved ? 15 * 60 : 0 }
 
     /// Opens the app on the captured session (R5); nil before a session exists.
