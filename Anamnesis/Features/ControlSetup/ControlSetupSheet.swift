@@ -61,8 +61,8 @@ struct ControlSetupSheet: View {
                 .font(Theme.display(.title))
                 .multilineTextAlignment(.center)
             Text("""
-                Add **Transcribe** to Control Center. When a poem starts in a reel, swipe down and tap it; \
-                you never leave TikTok or Instagram.
+                Add **Transcribe** to Control Center. When something worth keeping starts playing, swipe down \
+                and tap it; you never leave the app you’re in.
                 """)
                 .font(.callout)
                 .foregroundStyle(Theme.inkSecondary)
@@ -113,8 +113,8 @@ private struct AddedView: View {
             Text("You’re set")
                 .font(Theme.display(.largeTitle))
             Text("""
-                **Transcribe** is in place. Next time a poem plays, swipe down and tap it. Tap again, or the \
-                red indicator, to stop.
+                **Transcribe** is in place. Next time something worth keeping plays, swipe down and tap it. Tap \
+                again, or the red indicator, to stop.
                 """)
                 .font(.callout)
                 .foregroundStyle(Theme.inkSecondary)
