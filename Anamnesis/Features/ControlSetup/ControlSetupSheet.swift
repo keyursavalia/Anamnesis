@@ -41,7 +41,8 @@ struct ControlSetupSheet: View {
             }
             .animation(.spring(duration: 0.5, bounce: 0.3), value: state)
         }
-        .sensoryFeedback(.success, trigger: state == .added)
+        // Only on becoming added: a control removed while the sheet is open is no success.
+        .sensoryFeedback(.success, trigger: state == .added) { _, added in added }
         .task {
             while !Task.isCancelled {
                 await environment.controlCenter.refresh()
