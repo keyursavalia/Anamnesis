@@ -7,8 +7,6 @@ import TipKit
 /// after the user was asked, it says so once, then never again.
 struct ControlSetupCard: View {
     @Environment(AppEnvironment.self) private var environment
-    /// "Later" on the pre-TipKit card: honoured by retiring the tip.
-    @AppStorage("tip.controlCenter.dismissed") private var dismissed = false
     /// The user has seen the tip asking; only then is "added" news worth a card.
     @AppStorage("controlSetup.sawNotAdded") private var sawNotAdded = false
     @AppStorage("controlSetup.celebrated") private var celebrated = false
@@ -36,9 +34,6 @@ struct ControlSetupCard: View {
         .animation(.smooth, value: environment.controlCenter.state)
         .sensoryFeedback(.success, trigger: environment.controlCenter.isAdded) { _, added in added && sawNotAdded }
         .sheet(isPresented: $showsGuide) { ControlSetupSheet() }
-        .task {
-            if dismissed { controlTip.invalidate(reason: .tipClosed) }
-        }
     }
 
     private var added: some View {
