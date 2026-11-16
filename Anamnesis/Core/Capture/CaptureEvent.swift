@@ -1,16 +1,6 @@
 import AnamnesisKit
 import Foundation
 
-/// Host-side contract shared by capture backends (ARCHITECTURE §3.1). Starting differs per backend
-/// (SCK presents a picker; ReplayKit is started from the system broadcast picker), so it is not part of the protocol.
-protocol SystemAudioCapturing: AnyObject {
-    var backend: ProbeReport.Backend { get }
-    var events: AsyncStream<CaptureEvent> { get }
-    var isCapturing: Bool { get }
-    /// Stops capture and finalizes the run's report; nil if nothing was running.
-    func stop() async -> ProbeRun?
-}
-
 /// A finished (or interrupted) probe run on disk.
 nonisolated struct ProbeRun: Sendable, Identifiable {
     var id: URL { directory }
@@ -20,6 +10,12 @@ nonisolated struct ProbeRun: Sendable, Identifiable {
     let report: ProbeReport
     /// Final manifest of the spool written during this run; nil when spooling was off or for runs listed from disk.
     var spoolManifest: SpoolManifest?
+}
+
+nonisolated extension SpoolManifest {
+    /// Finished without a single frame: a start that failed, or a stop before the first buffer. The backend removes
+    /// such a session at stop, before `.stopped` is sent.
+    var isFinishedEmpty: Bool { state == .finished && totalFrames == 0 }
 }
 
 nonisolated enum CaptureEvent: Sendable {
