@@ -52,9 +52,6 @@ public struct SessionTranscript: Sendable, Equatable, Codable {
         self.metrics = metrics
     }
 
-    /// Row preview: the first result's text.
-    public var firstLine: String? { moments.first?.segments.first?.text }
-
     public static func read(from url: URL) throws -> SessionTranscript {
         try decode(from: Data(contentsOf: url))
     }
