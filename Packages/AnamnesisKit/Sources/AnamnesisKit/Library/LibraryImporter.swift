@@ -193,6 +193,13 @@ public actor LibraryImporter {
         return Set(try modelContext.fetch(descriptor).map(\.spoolSessionID))
     }
 
+    /// Sessions whose row already holds the stop time and reason, so a sync need not read their `capture.json` again.
+    public func sessionIDsWithStopRecord() throws -> Set<String> {
+        let descriptor = FetchDescriptor<CaptureSession>(
+            predicate: #Predicate { $0.stoppedAt != nil && $0.stopReason != nil })
+        return Set(try modelContext.fetch(descriptor).map(\.spoolSessionID))
+    }
+
     private func fetch(_ id: String) throws -> CaptureSession? {
         var descriptor = FetchDescriptor<CaptureSession>(predicate: #Predicate { $0.spoolSessionID == id })
         descriptor.fetchLimit = 1
