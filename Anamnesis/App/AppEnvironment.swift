@@ -196,10 +196,10 @@ final class AppEnvironment {
 
     private func stopCapture(source: String) {
         log(.capture).notice("\(source): stop requested")
-        let task = UIApplication.shared.beginBackgroundTask(withName: "capture-stop")
+        let task = BackgroundTask(name: "capture-stop", log: log(.capture))
         Task {
             await capture.stop()
-            UIApplication.shared.endBackgroundTask(task)
+            task.end()
         }
     }
 
