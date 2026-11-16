@@ -25,7 +25,9 @@ final class SessionIngestor {
 
     let directory: SpoolDirectory
     private let log: AppLog
-    private var isRefreshing = false
+    @ObservationIgnored private var inFlight: Task<Void, Never>?
+    /// Set when a refresh is asked for while one runs: that one scans again before it ends.
+    @ObservationIgnored private var rescanExcluding: Set<String>?
 
     init(directory: SpoolDirectory, log: AppLog) {
         self.directory = directory
@@ -33,10 +35,32 @@ final class SessionIngestor {
     }
 
     /// `activeSessionIDs` are being written right now and must not be "recovered" under the writer.
+    ///
+    /// A call made while a scan runs waits for a fresh scan rather than returning at once: a capture that stopped
+    /// mid-scan was otherwise missed until the next foreground, so it got no row and was not transcribed (review B4).
     func refresh(activeSessionIDs: Set<String>) async {
-        guard !isRefreshing else { return }
-        isRefreshing = true
-        defer { isRefreshing = false }
+        if let inFlight {
+            // Excluding more is safe: a session left out is only recovered on a later pass.
+            rescanExcluding = (rescanExcluding ?? []).union(activeSessionIDs)
+            await inFlight.value
+            return
+        }
+        let task = Task {
+            var excluded = activeSessionIDs
+            while true {
+                await scan(excluding: excluded)
+                // Checked and cleared on the main actor in one step, so a request can never fall between them.
+                guard let next = rescanExcluding else { break }
+                rescanExcluding = nil
+                excluded = next
+            }
+            inFlight = nil
+        }
+        inFlight = task
+        await task.value
+    }
+
+    private func scan(excluding activeSessionIDs: Set<String>) async {
         let directory = directory
         let (results, summaries) = await Task.detached {
             let results = SpoolRecovery.recoverAll(in: directory, excluding: activeSessionIDs)
