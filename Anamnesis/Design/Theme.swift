@@ -20,8 +20,6 @@ enum Theme {
     static let emberDeep = Color(light: 0x8E3018, dark: 0xA8432A)
     /// Ember behind white text: deep enough in dark mode for 4.5:1 contrast.
     static let emberFill = Color(light: 0xB8452A, dark: 0xC24F30)
-    /// Words the transcriber was unsure of (PRD principle 4: show them, never hide them).
-    static let unsure = Color(light: 0xA86A00, dark: 0xE8B04B)
     /// Saved, done, in the library.
     static let sage = Color(light: 0x4F7A5A, dark: 0x8CC09A)
     /// Danger for text and symbols (light enough to read on the night page).
