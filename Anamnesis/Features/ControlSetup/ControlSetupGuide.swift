@@ -61,7 +61,7 @@ private struct GuideStep: View {
     }
 }
 
-/// A schematic phone: a reel, then Control Center, then the edit and add-control screens.
+/// A schematic phone: something playing, then Control Center, then the edit and add-control screens.
 private struct MiniPhone: View {
     let step: Int
 
@@ -97,7 +97,7 @@ private struct MiniPhone: View {
         }
     }
 
-    /// A reel playing, and a finger dragging down from the top-right corner.
+    /// Media playing, and a finger dragging down from the top-right corner.
     private var swipe: some View {
         ZStack(alignment: .topTrailing) {
             VStack(spacing: 6) {
@@ -157,7 +157,7 @@ private struct MiniPhone: View {
             .padding(.vertical, 6)
             .background(.white.opacity(0.14), in: .capsule)
             VStack(spacing: 6) {
-                Image(systemName: "text.quote")
+                Image(systemName: "waveform")
                     .font(.system(size: 16, weight: .semibold))
                     .foregroundStyle(.white)
                     .frame(width: 44, height: 44)
