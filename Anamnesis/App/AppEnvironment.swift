@@ -153,7 +153,10 @@ final class AppEnvironment {
             for await event in events {
                 switch event {
                 case .started: self?.transcripts?.pauseForCapture()
-                case .stopped: await self?.refreshSessions()
+                case .stopped:
+                    // The stop record is queued before subscribers hear of the stop; the row should carry it.
+                    await self?.capture.recordWritesFinished()
+                    await self?.refreshSessions()
                 default: break
                 }
             }
