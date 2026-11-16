@@ -10,7 +10,7 @@ struct CapturePoemControl: ControlWidget {
     var body: some ControlWidgetConfiguration {
         StaticControlConfiguration(kind: AppIdentifiers.ControlKind.capture, provider: CaptureStateProvider()) { isOn in
             ControlWidgetToggle(isOn: isOn, action: CaptureToggleIntent()) {
-                Label("Transcribe", systemImage: "text.quote")
+                Label("Transcribe", systemImage: "waveform")
             } valueLabel: { isOn in
                 Text(isOn ? "Listening" : "Off")
             }
