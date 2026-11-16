@@ -1,5 +1,6 @@
 import Foundation
 import SwiftData
+import Synchronization
 import Testing
 @testable import AnamnesisKit
 
@@ -154,6 +155,26 @@ struct LibraryImporterTests {
         #expect(Set(try sessions(container).map(\.spoolSessionID)) == ["a", "b"])
         #expect(try await importer.importedSessionIDs() == ["b"])
         #expect(try await importer.transcribableSessionIDs(maxAttempts: 3) == ["a"])
+    }
+
+    @Test("a sync with nothing new saves nothing; a real change saves once")
+    func syncSavesOnlyChanges() async throws {
+        let (importer, container) = try makeImporter()
+        var snapshot = SessionSnapshot(spoolSessionID: "a", startedAt: start, stoppedAt: start.addingTimeInterval(10),
+                                       durationSec: 10, stopReason: "user", hasAudio: true)
+        try await importer.sync([snapshot])
+        let saves = Mutex(0)
+        let token = NotificationCenter.default.addObserver(forName: ModelContext.didSave, object: nil, queue: nil) {
+            // Other tests run in parallel: count only this store's saves.
+            if ($0.object as? ModelContext)?.container === container { saves.withLock { $0 += 1 } }
+        }
+        defer { NotificationCenter.default.removeObserver(token) }
+        try await importer.sync([snapshot])
+        #expect(saves.withLock { $0 } == 0)
+        snapshot.hasAudio = false
+        try await importer.sync([snapshot])
+        #expect(saves.withLock { $0 } == 1)
+        #expect(try sessions(container).first?.audioDeleted == true)
     }
 
     @Test("failures count attempts and stop automatic retries at the limit; Retry clears the failure")
