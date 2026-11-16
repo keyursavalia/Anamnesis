@@ -48,15 +48,16 @@ struct AppSettingsView: View {
             }
             if needsDownload(assets.state) {
                 Button("Download speech model", systemImage: "arrow.down.circle") {
-                    Task { await assets.install(locale: TranscriptionQueue.locale, config: TranscriptionQueue.config) }
+                    // Through the queue, so recordings waiting for the model start once it lands (spec 020 R7).
+                    Task { await environment.transcripts?.prepareModel() }
                 }
             }
         } header: {
             Eyebrow("Speech model")
         } footer: {
             Text("""
-                Apple downloads the English speech model once, through the system. Your audio and your poems \
-                never leave this device.
+                Apple downloads the English speech model once, through the system. Your audio and your \
+                transcripts never leave this device.
                 """)
         }
         .listRowBackground(Theme.surface)
@@ -92,7 +93,7 @@ struct AppSettingsView: View {
         } header: {
             Eyebrow("Storage")
         } footer: {
-            Text("Your poems, as text. Captured audio is deleted once it is transcribed.")
+            Text("Your transcripts, as text. Recorded audio is deleted once it is transcribed.")
         }
         .listRowBackground(Theme.surface)
     }
@@ -128,14 +129,15 @@ struct AppSettingsView: View {
             if let errorText { ErrorLine(errorText).listRowBackground(Color.clear) }
         } footer: {
             Text(environment.capture.isCapturing
-                 ? "Stop the capture to delete data."
-                 : "Removes every poem and capture, and the app’s log, from this device. This cannot be undone.")
+                 ? "Stop transcribing to delete data."
+                 : "Removes every transcript and recording, and the app’s log, from this device. "
+                    + "This cannot be undone.")
                 .padding(.top, 6)
         }
         .confirmationDialog("Delete all data?", isPresented: $confirmingDelete, titleVisibility: .visible) {
             Button("Delete everything", role: .destructive) { deleteAll() }
         } message: {
-            Text("Every poem and capture is removed from this device. This cannot be undone.")
+            Text("Every transcript and recording is removed from this device. This cannot be undone.")
         }
     }
 
