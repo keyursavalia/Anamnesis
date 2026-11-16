@@ -36,7 +36,7 @@ struct TranscriptionLabView: View {
                 ProgressView(value: fraction).accessibilityLabel("Model download progress")
             }
             Button("Install model", systemImage: "arrow.down.circle") { Task { await model.installAssets() } }
-                .disabled(model.assets.state != .status(.supported))
+                .disabled(model.assets.state != .status(.supported) || model.isAppInstalling)
             Button("Re-check status", systemImage: "arrow.clockwise") { Task { await model.refreshAssets() } }
         } header: {
             Text("Speech model")
