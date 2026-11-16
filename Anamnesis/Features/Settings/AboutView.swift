@@ -100,7 +100,7 @@ struct AboutView: View {
     }
 }
 
-/// Hear → Capture → Transcribe → Keep, joined by a line that grows as the steps appear one after another.
+/// Hear → Listen → Transcribe → Keep, joined by a line that grows as the steps appear one after another.
 private struct Timeline: View {
     let revealed: Bool
 
@@ -113,9 +113,9 @@ private struct Timeline: View {
     private static let steps = [
         Step(symbol: "music.note", title: "Hear",
              text: "A poem plays in a reel on TikTok, Instagram or anywhere else on your phone."),
-        Step(symbol: "switch.2", title: "Capture",
-             text: "Swipe down and tap Capture poem in Control Center, or tap the orb on Listen. Only the sound "
-                + "other apps play is captured, never your microphone."),
+        Step(symbol: "switch.2", title: "Listen",
+             text: "Swipe down and tap Transcribe in Control Center, or tap the orb on Listen. Only the sound "
+                + "other apps play is heard, never your microphone."),
         Step(symbol: "waveform.and.magnifyingglass", title: "Transcribe",
              text: "When you stop, Apple’s speech recognition turns the recital into text, right on your phone."),
         Step(symbol: "books.vertical.fill", title: "Keep",
@@ -127,13 +127,15 @@ private struct Timeline: View {
         VStack(alignment: .leading, spacing: 0) {
             ForEach(Self.steps.indices, id: \.self) { index in
                 let step = Self.steps[index]
-                HStack(alignment: .top, spacing: 16) {
+                // Each circle's centre sits on its title's centre, whatever the title's size (Dynamic Type).
+                HStack(alignment: .stepTitle, spacing: 16) {
                     VStack(spacing: 0) {
                         Image(systemName: step.symbol)
                             .font(.headline)
                             .foregroundStyle(.white)
                             .frame(width: 44, height: 44)
                             .background(Theme.emberFill, in: .circle)
+                            .alignmentGuide(.stepTitle) { $0[VerticalAlignment.center] }
                         if index < Self.steps.count - 1 {
                             Rectangle()
                                 .fill(Theme.ember.opacity(0.35))
@@ -144,10 +146,10 @@ private struct Timeline: View {
                     }
                     VStack(alignment: .leading, spacing: 4) {
                         Text(step.title).font(Theme.display(.title3)).foregroundStyle(Theme.ink)
+                            .alignmentGuide(.stepTitle) { $0[VerticalAlignment.center] }
                         Text(step.text).font(.subheadline).foregroundStyle(Theme.inkSecondary)
                             .fixedSize(horizontal: false, vertical: true)
                     }
-                    .padding(.top, 10)
                     .padding(.bottom, 24)
                 }
                 // Rows are as tall as their text, so the connector line fills exactly that height.
@@ -159,4 +161,13 @@ private struct Timeline: View {
             }
         }
     }
+}
+
+private extension VerticalAlignment {
+    /// The centre of a timeline step's title, shared by its circle.
+    private enum StepTitle: AlignmentID {
+        static func defaultValue(in context: ViewDimensions) -> CGFloat { context[VerticalAlignment.center] }
+    }
+
+    static let stepTitle = VerticalAlignment(StepTitle.self)
 }
