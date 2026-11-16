@@ -3,9 +3,9 @@ import SwiftData
 import SwiftUI
 import UIKit
 
-/// Read one poem (spec 012 R4; restyled in spec 015 R5; spec 016 R4–R6): set like a page, in New York at a reading
-/// measure. The source opens the original reel when it is a link. Edit (spec 011), Copy and *Share card* in the
-/// toolbar; Delete under More.
+/// Read one transcript (spec 012 R4; restyled in spec 015 R5; spec 016 R4–R6): set like a page, in New York at a
+/// reading measure. The source opens the original media when it is a link. Edit (spec 011), Copy and *Share card* in
+/// the toolbar; Delete under More.
 struct PoemDetailView: View {
     @Environment(\.modelContext) private var context
     @Environment(\.dismiss) private var dismiss
@@ -44,17 +44,17 @@ struct PoemDetailView: View {
             }
             ToolbarItem(placement: .primaryAction) {
                 Menu("More", systemImage: "ellipsis") {
-                    Button("Delete poem", systemImage: "trash", role: .destructive) { confirmingDelete = true }
+                    Button("Delete transcript", systemImage: "trash", role: .destructive) { confirmingDelete = true }
                 }
             }
         }
         .sheet(item: $editing) { PoemEditorView(poem: $0) }
         .sheet(isPresented: $sharingCard) { ShareCardSheet(poem: PoemExport(poem: poem)) }
         .sensoryFeedback(.success, trigger: copied)
-        .confirmationDialog("Delete this poem?", isPresented: $confirmingDelete, titleVisibility: .visible) {
-            Button("Delete poem", role: .destructive) { delete() }
+        .confirmationDialog("Delete this transcript?", isPresented: $confirmingDelete, titleVisibility: .visible) {
+            Button("Delete transcript", role: .destructive) { delete() }
         } message: {
-            Text("The poem is removed from your library. This cannot be undone.")
+            Text("The transcript is removed from your library. This cannot be undone.")
         }
     }
 
@@ -71,7 +71,7 @@ struct PoemDetailView: View {
         }
     }
 
-    /// Copy (plain text with title, poet and source) and the share card (spec 016 R6).
+    /// Copy (plain text with title, speaker and source) and the share card (spec 016 R6).
     private var shareMenu: some View {
         Menu("Share", systemImage: "square.and.arrow.up") {
             Button("Copy", systemImage: "doc.on.doc") {
@@ -96,7 +96,7 @@ struct PoemDetailView: View {
     }
 }
 
-/// The poem's source (spec 016 R4). A link becomes a button that opens the original: the system routes it to the
+/// The transcript's source (spec 016 R4). A link becomes a button that opens the original: the system routes it to the
 /// app that owns it (Instagram, TikTok, …) or to Safari. Plain text stays plain text.
 private struct SourceView: View {
     let note: String
@@ -130,7 +130,7 @@ private struct SourceView: View {
                 .overlay { RoundedRectangle(cornerRadius: 16).strokeBorder(Theme.hairline, lineWidth: 0.5) }
             }
             .buttonStyle(CardButtonStyle())
-            .accessibilityHint("Opens the original reel")
+            .accessibilityHint("Opens the original")
             .contextMenu {
                 Button("Copy link", systemImage: "link") { UIPasteboard.general.url = url }
             }
