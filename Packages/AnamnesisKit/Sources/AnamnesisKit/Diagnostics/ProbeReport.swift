@@ -8,10 +8,9 @@ public struct ProbeReport: Sendable, Equatable, Codable {
         case screenCaptureKit
     }
 
-    /// Buffer types of both backends: SCK (`screen`/`audio`/`microphone`), ReplayKit (`video`/`audioApp`/`audioMic`).
+    /// `SCStreamOutputType`'s buffer types (the ReplayKit ones went with the backend, D-041).
     public enum BufferType: String, Sendable, Codable, CaseIterable {
         case screen, audio, microphone
-        case video, audioApp, audioMic
     }
 
     /// What the operator set up; filled by the backend before the run starts.
