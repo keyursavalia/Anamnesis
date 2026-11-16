@@ -36,7 +36,7 @@ nonisolated enum TranscriptionError: Error, LocalizedError, Equatable {
         switch self {
         case .transcriberUnavailable: "SpeechTranscriber is not available on this device"
         case .unsupportedLocale(let locale): "Locale \(locale) is not supported for transcription"
-        case .modelNotInstalled(let status): "Speech model not installed (status: \(status)); install it in the Lab"
+        case .modelNotInstalled(let status): "The speech model is not downloaded yet (status: \(status))"
         case .fileUnreadable(let detail): "Cannot read audio: \(detail)"
         case .cancelled: "Transcription cancelled"
         case .speech(let code, let name, let message): "Speech error \(code) (\(name)): \(message)"
