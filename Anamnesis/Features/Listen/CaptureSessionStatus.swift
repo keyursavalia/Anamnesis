@@ -1,7 +1,7 @@
 import AnamnesisKit
 import Foundation
 
-/// What a session's card and review screen show, from the library row, the queue and the capture controller.
+/// What a session's card shows, from the library row, the queue and the capture controller.
 struct CaptureSessionStatus {
     let state: CaptureSessionState
     /// This process's job error first, else the one stored from an earlier launch.
@@ -10,13 +10,7 @@ struct CaptureSessionStatus {
     /// 0…1 while transcribing, when the audio length is known.
     let progress: Double?
 
-    init(session: CaptureSession, environment: AppEnvironment) {
-        let id = session.spoolSessionID
-        self.init(session: session, environment: environment,
-                  manifest: environment.sessions?.sessions.first { $0.id == id }?.manifest)
-    }
-
-    /// For lists: the caller looks manifests up once (`manifests(in:)`) instead of once per row.
+    /// The caller looks manifests up once (`manifests(in:)`) instead of once per row.
     init(session: CaptureSession, environment: AppEnvironment, manifest: SpoolManifest?) {
         let id = session.spoolSessionID
         let jobState = environment.transcripts?.state(of: id)
@@ -51,30 +45,8 @@ struct CaptureSessionStatus {
         return byID
     }
 
-    var label: String {
-        switch state {
-        case .capturing: "Listening now"
-        case .saved: "Waiting to transcribe"
-        case .transcribing: "Transcribing"
-        case .transcribed: "Transcribed"
-        case .failed: "Couldn’t transcribe"
-        }
-    }
-
-    var systemImage: String {
-        switch state {
-        case .capturing: "waveform"
-        case .saved: "hourglass"
-        case .transcribing: "text.bubble"
-        case .transcribed: "text.quote"
-        case .failed: "exclamationmark.triangle"
-        }
-    }
-
     /// Still on its way (or failed): it belongs at the top of the Listen screen.
-    func needsAttention(_ session: CaptureSession) -> Bool {
-        state != .transcribed
-    }
+    var needsAttention: Bool { state != .transcribed }
 }
 
 enum CaptureFormat {
