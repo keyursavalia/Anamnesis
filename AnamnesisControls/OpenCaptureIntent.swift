@@ -76,7 +76,7 @@ private enum CaptureActivityStart {
 /// Rungs 1–2: brings the app forward on the capture screen. Discoverable so Shortcuts / Back Tap can run it.
 struct OpenCaptureIntent: AppIntent {
     static let title: LocalizedStringResource = "Open Transcribe"
-    static let description = IntentDescription("Opens Anamnesis on the Listen screen, ready to transcribe.")
+    static let description = IntentDescription("Opens Anamnesis on the Transcribe screen, ready to start.")
     static let supportedModes: IntentModes = .foreground(.immediate)
 
     @Parameter(title: "Present picker", default: false)
