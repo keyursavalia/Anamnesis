@@ -3,7 +3,6 @@
 public enum AppIdentifiers {
     public static let bundlePrefix = "com.keyurdipakbhaisavalia"
     public static let appBundleID = "\(bundlePrefix).Anamnesis"
-    public static let broadcastBundleID = extensionBundleID("broadcast")
     public static let controlsBundleID = extensionBundleID("controls")
     public static let appGroupID = "group.\(appBundleID)"
     public static let logSubsystem = appBundleID
@@ -12,12 +11,6 @@ public enum AppIdentifiers {
     /// `ControlWidget` kinds; also used with `ControlCenter.shared.reloadControls(ofKind:)`.
     public enum ControlKind {
         public static let capture = "\(appBundleID).control.capture"
-    }
-
-    /// Darwin notification names (CFNotificationCenter Darwin center; no payload).
-    public enum DarwinNotification {
-        /// Posted by the broadcast extension after it writes `DONE` for a spool session (ARCHITECTURE §4).
-        public static let sessionFinished = "\(appBundleID).session.finished"
     }
 
     /// Extension bundle IDs must be prefixed by the host app's bundle ID.
