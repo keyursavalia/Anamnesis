@@ -1,61 +1,44 @@
 import SwiftUI
+import TipKit
 
-/// The Listen screen's setup card (spec 015 R9). Shown only while *Transcribe* is not placed and the user has not
-/// chosen Later; once the control appears it says so once, then never shows again.
+/// The Transcribe screen's setup area (spec 015 R9; TipKit since spec 020 R10, D-038). While *Transcribe* is not
+/// placed, the Control Center tip invites the user (*Show me how* opens the guide; closing it retires it). On iPhone,
+/// after a few launches, the Action Button tip follows. TipKit spaces them a week apart. Once the control appears
+/// after the user was asked, it says so once, then never again.
 struct ControlSetupCard: View {
     @Environment(AppEnvironment.self) private var environment
+    /// "Later" on the pre-TipKit card: honoured by retiring the tip.
     @AppStorage("tip.controlCenter.dismissed") private var dismissed = false
-    /// The user has seen the card asking; only then is "added" news worth a card.
+    /// The user has seen the tip asking; only then is "added" news worth a card.
     @AppStorage("controlSetup.sawNotAdded") private var sawNotAdded = false
     @AppStorage("controlSetup.celebrated") private var celebrated = false
     @State private var showsGuide = false
+    private let controlTip = ControlCenterTip()
+    private let actionButtonTip = ActionButtonTip()
 
     var body: some View {
-        Group {
-            switch environment.controlCenter.state {
-            case .unknown:
-                EmptyView()
-            case .added:
+        // No spacing: a tip that is not showing takes no room, and each card brings its own margin.
+        VStack(spacing: 0) {
+            if environment.controlCenter.state == .added {
                 if sawNotAdded && !celebrated { added.transition(.scale(scale: 0.95).combined(with: .opacity)) }
-            case .notAdded, .unavailable:
-                if !dismissed { invite.onAppear { sawNotAdded = true } }
+            } else if environment.controlCenter.state != .unknown {
+                TipView(controlTip) { action in
+                    if action.id == ControlCenterTip.showGuide { showsGuide = true }
+                }
+                .onAppear { sawNotAdded = true }
             }
+            TipView(actionButtonTip)
         }
+        .tipViewStyle(CardTipStyle())
+        // The style draws its own card; TipKit's plate behind it would double it.
+        .tipBackground(Color.clear)
+        .tipCornerRadius(Theme.cornerRadius)
         .animation(.smooth, value: environment.controlCenter.state)
         .sensoryFeedback(.success, trigger: environment.controlCenter.isAdded) { _, added in added && sawNotAdded }
         .sheet(isPresented: $showsGuide) { ControlSetupSheet() }
-    }
-
-    private var invite: some View {
-        VStack(alignment: .leading, spacing: 14) {
-            HStack(alignment: .top, spacing: 14) {
-                Image(systemName: "switch.2")
-                    .font(.title2)
-                    .foregroundStyle(Theme.ember)
-                    .frame(width: 44, height: 44)
-                    .background(Theme.ember.opacity(0.12), in: .rect(cornerRadius: 12))
-                VStack(alignment: .leading, spacing: 4) {
-                    Text("Transcribe from any app").font(.headline)
-                    Text("Add **Transcribe** to Control Center and start without leaving your reel.")
-                        .font(.footnote).foregroundStyle(Theme.inkSecondary)
-                }
-            }
-            // Two equal halves across the card, so neither button looks like an afterthought.
-            HStack(spacing: 10) {
-                Button { showsGuide = true } label: {
-                    Label("Show me how", systemImage: "play.circle.fill").frame(maxWidth: .infinity)
-                }
-                .buttonStyle(ProminentButtonStyle())
-                Button { withAnimation(.smooth) { dismissed = true } } label: {
-                    Text("Later").frame(maxWidth: .infinity)
-                }
-                .buttonStyle(QuietButtonStyle())
-                .accessibilityHint("Hides this card. The guide stays in Settings.")
-            }
-            .lineLimit(1)
-            .minimumScaleFactor(0.85)
+        .task {
+            if dismissed { controlTip.invalidate(reason: .tipClosed) }
         }
-        .card(padding: 16)
     }
 
     private var added: some View {
@@ -66,7 +49,7 @@ struct ControlSetupCard: View {
                 .symbolEffect(.bounce, options: .nonRepeating)
             VStack(alignment: .leading, spacing: 2) {
                 Text("Transcribe is ready").font(.headline)
-                Text("Swipe down and tap it when a poem starts.")
+                Text("Swipe down and tap it whenever something’s worth keeping.")
                     .font(.footnote).foregroundStyle(Theme.inkSecondary)
             }
             Spacer(minLength: 0)
