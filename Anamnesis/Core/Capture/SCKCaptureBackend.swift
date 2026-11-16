@@ -60,7 +60,7 @@ final class SCKCaptureBackend: SystemAudioCapturing {
     private var session: Session?
     /// Set synchronously when a filter starts a stream: `session` is only set inside the async start, and SCK can
     /// deliver two filters for one confirm (F-032), which started two streams that both failed with -3802.
-    private var isStartingStream = false
+    private var startingStream = false
     /// Keeps the process running while the system picker is up (F-035): after a cold background launch the app is
     /// suspended once the intent returns, so the user's confirm sat undelivered until the next wake-up and the
     /// late start failed with -3802.
@@ -77,10 +77,12 @@ final class SCKCaptureBackend: SystemAudioCapturing {
     }
 
     var isPickerAvailable: Bool { coordinator.isAvailable }
+    /// A confirmed picker's stream is being set up: the outcome is in, `.started` or `.startFailed` follows.
+    var isStartingStream: Bool { startingStream }
 
     /// Presents the system picker; capture starts when it returns a filter.
     func requestStart(_ settings: Settings, settle: Duration = .zero) throws {
-        guard session == nil, !isStartingStream else { throw CaptureError.alreadyCapturing }
+        guard session == nil, !startingStream else { throw CaptureError.alreadyCapturing }
         guard coordinator.isAvailable else { throw CaptureError.pickerUnavailable }
         self.settings = settings
         awaitingPicker = true
@@ -131,15 +133,15 @@ final class SCKCaptureBackend: SystemAudioCapturing {
                        + "style=\(filter.style.rawValue) rect=\(filter.contentRect)")
             eventSink.yield(.filterReceived(unsolicited: unsolicited, forExistingStream: forExistingStream))
             // iOS cannot retarget a running stream (`updateContentFilter` is unavailable), so ignore it.
-            guard session == nil, !isStartingStream else {
+            guard session == nil, !startingStream else {
                 log.notice("filter ignored: a stream is already running or starting")
                 return
             }
-            isStartingStream = true
+            startingStream = true
             let style = unsolicited ? "systemUI" : settings.style.rawValue
             Task {
                 await startStream(filter: filter, styleUsed: style)
-                isStartingStream = false
+                startingStream = false
                 endPickerBackgroundTask()
             }
         case .cancelled:
@@ -321,9 +323,22 @@ extension SCKCaptureBackend {
     }
 }
 
-// MARK: - Picker background time (F-035)
+// MARK: - Picker lifetime (F-035, abandoned presentations)
 
 extension SCKCaptureBackend {
+    /// Gives up on a presentation whose outcome never came: the user can see our screen again, so the picker is gone.
+    /// SCK does not always report a quick dismissal (F-032 saw cancels arrive late and batched), which left the UI
+    /// waiting. Reported as a cancel, so every listener resets the same way. A late filter still starts a capture,
+    /// as an unsolicited one.
+    func abandonPickerRequest() {
+        guard awaitingPicker, session == nil, !startingStream else { return }
+        awaitingPicker = false
+        coordinator.endPresentation()
+        endPickerBackgroundTask()
+        log.notice("picker abandoned with no outcome coordinator=\(coordinator.id)")
+        eventSink.yield(.pickerCancelled)
+    }
+
     fileprivate func beginPickerBackgroundTask() {
         guard pickerBackgroundTask == .invalid else { return }
         pickerBackgroundTask = UIApplication.shared.beginBackgroundTask(withName: "SCK picker") { [weak self] in
