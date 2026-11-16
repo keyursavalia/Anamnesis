@@ -59,7 +59,7 @@ struct ShareCardSheet: View {
                 } label: {
                     VStack(spacing: 6) {
                         Circle()
-                            .fill(swatch(option))
+                            .fill(option.swatch)
                             .frame(width: 44, height: 44)
                             .overlay { Circle().strokeBorder(Theme.hairline, lineWidth: 1) }
                             .padding(3)
@@ -77,16 +77,6 @@ struct ShareCardSheet: View {
             }
         }
         .sensoryFeedback(.selection, trigger: style)
-    }
-
-    private func swatch(_ style: PoemShareCard.Style) -> AnyShapeStyle {
-        switch style {
-        case .paper: AnyShapeStyle(Color(light: 0xF6F1E7, dark: 0xF6F1E7))
-        case .night: AnyShapeStyle(Color(light: 0x1D1B18, dark: 0x1D1B18))
-        case .ember: AnyShapeStyle(LinearGradient(colors: [Color(light: 0xC24F30, dark: 0xC24F30),
-                                                           Color(light: 0x7E2A14, dark: 0x7E2A14)],
-                                                  startPoint: .topLeading, endPoint: .bottomTrailing))
-        }
     }
 
     private var shareButton: some View {
