@@ -64,18 +64,19 @@ public struct SpoolManifest: Sendable, Equatable, Codable {
         try decode(from: Data(contentsOf: url))
     }
 
-    private static var encoder: JSONEncoder {
+    /// Built once: the writer replaces the manifest at every rotation, and every spool refresh reads them all.
+    private static let encoder: JSONEncoder = {
         let encoder = JSONEncoder()
         encoder.outputFormatting = [.prettyPrinted, .sortedKeys]
         encoder.dateEncodingStrategy = .iso8601
         return encoder
-    }
+    }()
 
-    private static var decoder: JSONDecoder {
+    private static let decoder: JSONDecoder = {
         let decoder = JSONDecoder()
         decoder.dateDecodingStrategy = .iso8601
         return decoder
-    }
+    }()
 }
 
 public struct SpoolSegmentInfo: Sendable, Equatable, Codable {
