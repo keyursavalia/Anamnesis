@@ -101,6 +101,16 @@ final class TranscriptionQueue {
         await retry(id)
     }
 
+    /// Spec 020 R7: gets the speech model onto the device (welcome, every activation), then starts any recording
+    /// that was waiting for it. Never fails a recording: until the model lands they wait as *saved*.
+    func prepareModel() async {
+        await assets.ensureInstalled(locale: Self.locale, config: Self.config)
+        if assets.state.isInstalled { await startNext() }
+    }
+
+    /// True once the model is known to be missing; jobs wait instead of failing with `modelNotInstalled`.
+    var isWaitingForModel: Bool { assets.state.isAwaitingInstall }
+
     /// Swipe to delete: removes the session's folder (audio, transcript) and its library row; poems stay (R4).
     func delete(sessionID id: String) async throws {
         if runningID == id { task?.cancel() }
@@ -151,6 +161,15 @@ final class TranscriptionQueue {
         }
         // A capture may have started while the store was read.
         guard let next, task == nil, !capture.isCapturing else { return }
+        // No model yet (a new user): fetch it and leave the recording waiting, rather than fail it (spec 020 R7).
+        if !assets.state.isInstalled {
+            await assets.refresh(locale: Self.locale, config: Self.config)
+            guard assets.state.isInstalled else {
+                log.notice("transcription waiting for the speech model session=\(next.id)")
+                Task { await prepareModel() }
+                return
+            }
+        }
         run(next)
     }
 
