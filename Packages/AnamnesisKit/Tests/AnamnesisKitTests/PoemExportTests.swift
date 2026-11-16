@@ -16,6 +16,6 @@ struct PoemExportTests {
     func heading() {
         #expect(PoemExport(title: "Night", body: "x").heading == "Night")
         #expect(PoemExport(title: "", body: "\n  first line\nsecond").heading == "first line")
-        #expect(PoemExport(body: "").heading == "Poem")
+        #expect(PoemExport(body: "").heading == "Transcript")
     }
 }
