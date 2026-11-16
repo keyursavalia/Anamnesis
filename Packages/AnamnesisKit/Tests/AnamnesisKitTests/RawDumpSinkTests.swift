@@ -81,7 +81,7 @@ struct RawDumpSinkTests {
     @Test("the pipeline feeds the sink only with analyzed audio")
     func pipelineIntegration() throws {
         let recorder = DiagnosticsRecorder(
-            runLabel: "", backend: .replayKit, config: .init(), device: .current(), app: .current())
+            runLabel: "", backend: .screenCaptureKit, config: .init(), device: .current(), app: .current())
         let sink = try RawDumpSink(directory: directory)
         let pipeline = AudioIngestPipeline(recorder: recorder, rawDump: sink)
         pipeline.ingest(try SampleBufferFactory.int16Interleaved([9, 9]), type: .audioMic)
