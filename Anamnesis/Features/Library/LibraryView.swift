@@ -9,6 +9,7 @@ import UIKit
 struct LibraryView: View {
     /// Switches to the Transcribe tab from the empty state.
     var startListening: () -> Void = {}
+    @Environment(AppEnvironment.self) private var environment
     @State private var filter = LibraryFilter()
     @State private var path: [Poem] = []
     /// All transcripts, for the filter menus and the "nothing yet" state.
@@ -44,6 +45,9 @@ struct LibraryView: View {
             }
             .sheet(item: $composing) { PoemEditorView(newPoem: $0) }
         }
+        // *Delete all data* removed every transcript, including one left open here; drop it from the stack so
+        // returning to this tab never shows (or touches) a deleted model.
+        .onChange(of: environment.dataDeletedAt) { path.removeAll() }
     }
 }
 
@@ -224,12 +228,10 @@ private struct PoemCard: View {
     }
 
     /// One line of the transcript that is not already the title: the first, or the second when the first is the title.
+    /// Reads only as far into the body as it needs.
     private var line: String? {
-        let lines = poem.body.split(whereSeparator: \.isNewline)
-            .lazy
-            .map { $0.trimmingCharacters(in: .whitespaces) }
-            .filter { !$0.isEmpty }
-        return lines.first { $0 != poem.displayTitle }
+        let title = poem.displayTitle
+        return poem.nonEmptyLines.first { $0 != title }
     }
 }
 
@@ -258,5 +260,6 @@ private struct EmptyLibraryView: View {
 #Preview {
     let environment = AppEnvironment()
     LibraryView()
+        .environment(environment)
         .modelContainer(environment.library.container)
 }
