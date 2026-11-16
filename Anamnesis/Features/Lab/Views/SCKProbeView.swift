@@ -5,6 +5,8 @@ import SwiftUI
 // SPIKE: Lab → SCK Probe. Operator UI for DEVICE_TEST_PROTOCOLS §3.
 struct SCKProbeView: View {
     @Bindable var model: SCKProbeViewModel
+    /// Written in a task, not in `body`: the 2 Hz live poll re-renders the screen, and each render wrote the log.
+    @State private var logURL: URL?
 
     var body: some View {
         List {
@@ -22,6 +24,8 @@ struct SCKProbeView: View {
         }
         .navigationTitle("SCK Probe")
         .task { await model.pollLive() }
+        // Refreshed with each new event line, so the shared file is never far behind.
+        .task(id: model.eventLines.first) { logURL = model.exportLogURL() }
     }
 
     private var statusSection: some View {
@@ -72,7 +76,7 @@ struct SCKProbeView: View {
     private var logSection: some View {
         Section("Log & events") {
             Button("Copy log", systemImage: "doc.on.doc") { model.copyLog() }
-            if let url = model.exportLogURL() {
+            if let url = logURL {
                 ShareLink(item: url) { Label("Export log", systemImage: "square.and.arrow.up") }
             }
             ForEach(model.eventLines, id: \.self) { line in
@@ -135,7 +139,7 @@ private struct SCKLiveSection: View {
                 .map { "\($0.key) \($0.value)" }.joined(separator: " · "))
             LabeledContent("Silent buffers", value: String(format: "%.0f %%", counters.silentRatio * 100))
             LabeledContent("PTS gaps", value: "\(counters.ptsGaps.count) (max \(Int(counters.ptsGaps.maxMs)) ms)")
-            LabeledContent("Format changes · drops", value: "\(counters.formatChanges) · \(counters.dropsQueueFull)")
+            LabeledContent("Format changes", value: "\(counters.formatChanges)")
             LabeledContent("Errors", value: "\(counters.errors.count)")
             if let format = report.firstBuffer?.format {
                 LabeledContent("Format", value: "\(Int(format.sampleRate)) Hz · \(format.channels) ch · "
