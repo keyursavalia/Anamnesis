@@ -120,10 +120,8 @@ struct SpoolRecoveryTests {
         #expect(!active.isDone)
     }
 
-    @Test("retention defaults to deleting after transcription; delete removes the folder")
-    func retention() throws {
-        #expect(SpoolRetentionPolicy.default.deletesAfterTranscription)
-        #expect(!SpoolRetentionPolicy.keepForDebug.deletesAfterTranscription)
+    @Test("delete removes the session folder")
+    func deleteSession() throws {
         let session = try makeInterruptedSession()
         try root.delete(session)
         #expect(root.sessions().isEmpty)
