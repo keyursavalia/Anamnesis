@@ -2,7 +2,6 @@
 @preconcurrency import ActivityKit
 import AnamnesisKit
 import Foundation
-import UIKit
 
 /// Drives the capture Live Activity (spec 007) from capture events, next to `CaptureControlSync`. The control's
 /// intent starts it (`awaitingConsent`, R2); a capture started inside the app gets one at `started`. At most three
@@ -93,8 +92,8 @@ final class CaptureActivityController {
             Task { _ = try? await Task.sleep(for: .seconds(Self.announceSeconds)) }
         }
         announceHold = hold
-        // Ended by the chain well inside the ~30 s the system grants; no expiration handler needed for an 8 s wait.
-        let keepAlive = alert.map { _ in UIApplication.shared.beginBackgroundTask(withName: "activity-announce") }
+        // Ended by the chain well inside the ~30 s the system grants; ended at expiry too, should the chain stall.
+        let keepAlive = alert.map { _ in BackgroundTask(name: "activity-announce", log: log) }
         enqueue { log in
             let current = CaptureActivity.activities
             if current.isEmpty { log.notice("activity: none to end at stop") }
@@ -107,9 +106,7 @@ final class CaptureActivityController {
             for activity in current {
                 await Self.end(activity, with: content, dismissal: dismissal, log: log)
             }
-            if let keepAlive {
-                await MainActor.run { UIApplication.shared.endBackgroundTask(keepAlive) }
-            }
+            if let keepAlive { await keepAlive.end() }
         }
     }
 
