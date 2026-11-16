@@ -57,7 +57,7 @@ struct Eyebrow: View {
     }
 }
 
-/// A status capsule: "3 to review", "Transcribing", "In library".
+/// A status capsule: "Listening", "Transcribing 40%", "1 transcript in your library".
 struct Pill: View {
     let text: String
     var systemImage: String?
@@ -75,22 +75,6 @@ struct Pill: View {
         .foregroundStyle(filled ? Color.white : tint)
         .background(filled ? AnyShapeStyle(tint == Theme.ember ? Theme.emberFill : tint)
                            : AnyShapeStyle(tint.opacity(0.13)), in: .capsule)
-    }
-}
-
-/// A tag or filter chip.
-struct Chip: View {
-    let text: String
-    var isSelected = false
-
-    var body: some View {
-        Text(text)
-            .font(.subheadline.weight(.medium))
-            .padding(.horizontal, 12)
-            .padding(.vertical, 7)
-            .foregroundStyle(isSelected ? Color.white : Theme.ink)
-            .background(isSelected ? AnyShapeStyle(Theme.emberFill) : AnyShapeStyle(Theme.sunken), in: .capsule)
-            .contentShape(.capsule)
     }
 }
 
