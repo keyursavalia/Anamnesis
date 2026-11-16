@@ -96,14 +96,6 @@ public final class DiagnosticsRecorder: Sendable {
         }
     }
 
-    /// The bounded hand-off queue was full and a buffer was discarded.
-    public func recordDroppedBuffer() {
-        state.withLock { state in
-            guard !state.isFinished else { return }
-            state.report.counters.dropsQueueFull += 1
-        }
-    }
-
     public func recordError(domain: String, code: Int, description: String) {
         let tSec = elapsed()
         state.withLock { state in
@@ -134,10 +126,6 @@ public final class DiagnosticsRecorder: Sendable {
             }
             state.report.memory = memory
         }
-    }
-
-    public func setNotes(_ notes: String) {
-        state.withLock { $0.report.notes = notes }
     }
 
     // MARK: - Output
