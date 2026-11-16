@@ -61,9 +61,10 @@ final class PoemEditorModel {
     // MARK: - Store
 
     func save(in context: ModelContext) throws {
-        draft.apply(to: poem)
-        insertIfNew(in: context)
-        try context.save()
+        try commit(in: context) {
+            draft.apply(to: poem)
+            insertIfNew(in: context)
+        }
         original = PoemDraft(poem: poem)
         draft = original
         history.record(draft)
@@ -75,19 +76,43 @@ final class PoemEditorModel {
         return text.characters.distance(from: text.startIndex, to: index)
     }
 
-    var canSplit: Bool { cursorOffset.flatMap { PoemSplit.split(draft.body, at: $0) } != nil }
+    /// Same answer as `PoemSplit.split(_:at:) != nil` (text on both sides of the cursor), but it looks outward from
+    /// the cursor instead of copying the whole body: the toolbar asks on every keystroke and cursor move.
+    var canSplit: Bool {
+        guard case .insertionPoint(let index) = selection.indices(in: text) else { return false }
+        let characters = text.characters
+        return characters[..<index].contains { !$0.isWhitespace } && characters[index...].contains { !$0.isWhitespace }
+    }
 
     /// *Split here* (R1): saves this poem with the text before the cursor and continues with the new one.
     func split(in context: ModelContext) throws {
-        guard let offset = cursorOffset else { return }
-        draft.apply(to: poem)
-        insertIfNew(in: context)
-        guard let other = poem.splitOff(at: offset, in: context) else { return }
-        try context.save()
-        load(other)
+        guard let offset = cursorOffset, PoemSplit.split(draft.body, at: offset) != nil else { return }
+        let other = try commit(in: context) {
+            draft.apply(to: poem)
+            insertIfNew(in: context)
+            return poem.splitOff(at: offset, in: context)
+        }
+        if let other { load(other) }
     }
 
     // MARK: - Private
+
+    /// Makes `change` and saves it. A failed save is rolled back: left in the autosaving main context, the change
+    /// would be written later anyway, behind the error the user was shown (review follow-up 8). The draft stays in
+    /// the editor to try again. The rollback also drops any other unsaved change in the context; the app saves
+    /// those at once, so there are none in practice.
+    private func commit<Result>(in context: ModelContext, _ change: () -> Result) throws -> Result {
+        let wasNew = isNew
+        let result = change()
+        do {
+            try context.save()
+        } catch {
+            context.rollback()
+            isNew = wasNew
+            throw error
+        }
+        return result
+    }
 
     private func insertIfNew(in context: ModelContext) {
         guard isNew else { return }
