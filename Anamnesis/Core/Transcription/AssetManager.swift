@@ -15,6 +15,40 @@ enum AssetState: Equatable {
 
     var isInstalled: Bool { self == .status(.installed) }
 
+    /// Known to be missing, downloading, or stuck offline: recordings wait for it (spec 020 R7).
+    var isAwaitingInstall: Bool {
+        switch self {
+        case .status(let status): status != .installed && status != .unsupported
+        case .installing, .failed: true
+        case .unknown, .transcriberUnavailable, .unsupportedLocale: false
+        }
+    }
+
+    var isFailed: Bool {
+        if case .failed = self { true } else { false }
+    }
+
+    /// The welcome's ring (spec 020 R7): 0…1, with a sliver showing before any progress.
+    var setupProgress: Double {
+        switch self {
+        case .status(.installed): 1
+        case .installing(let fraction): max(0.03, fraction)
+        default: 0.03
+        }
+    }
+
+    /// One line for a person, not the Lab: where the one-time download stands.
+    var setupDetail: String {
+        switch self {
+        case .status(.installed): "Ready"
+        case .installing(let fraction): "Downloading · \(Int(fraction * 100)) %"
+        case .status(.downloading): "Downloading…"
+        case .failed: "Waiting for internet · it will retry on its own"
+        case .transcriberUnavailable, .unsupportedLocale, .status(.unsupported): "Not available on this device"
+        case .unknown, .status: "Checking…"
+        }
+    }
+
     var label: String {
         switch self {
         case .unknown: "Checking…"
@@ -36,9 +70,32 @@ final class AssetManager {
     private(set) var installedLocaleIDs: Set<String> = []
 
     private let log: AppLog
+    /// The one install in flight, so the welcome, the queue and Settings never start two.
+    @ObservationIgnored private var installTask: Task<Void, Never>?
 
     init(log: AppLog) {
         self.log = log
+    }
+
+    /// Spec 020 R7: makes sure the model is on the device, from the welcome or whenever the app comes forward.
+    /// Already installed, or an install running: returns at once (or waits for that install). Otherwise the system
+    /// downloads it (the app's only tolerated network use, invariant 1). Offline, it fails quietly and the next
+    /// activation tries again.
+    func ensureInstalled(locale: Locale, config: TranscriptionConfig) async {
+        if let installTask { return await installTask.value }
+        // Set before the first `await`, so a second caller joins this one instead of starting its own.
+        let task = Task {
+            await refresh(locale: locale, config: config)
+            guard case .status(let status) = state, status == .supported || status == .downloading else { return }
+            await install(locale: locale, config: config)
+        }
+        installTask = task
+        await task.value
+        installTask = nil
+    }
+
+    var isInstalling: Bool {
+        if case .installing = state { true } else { false }
     }
 
     func loadLocales() async {
