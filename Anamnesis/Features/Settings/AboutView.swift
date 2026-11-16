@@ -1,28 +1,38 @@
 import SwiftUI
 
-/// About Anamnesis (spec 016 R11): what the name means, how the app works as a four-step timeline that draws itself
-/// in, what it stands for, and the version.
+/// About Anamnesis (spec 016 R11; rewritten in spec 020 R12): the mark, what the name means, why the app was built
+/// (in the developer's voice), the version, and the developer's name, quietly, linking to LinkedIn. Sized to fit one
+/// iPhone screen; it scrolls only at very large text sizes.
 struct AboutView: View {
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @State private var revealed = false
 
+    /// Owner's draft (spec 020): edit freely; it is the only copy.
+    private static let why = """
+        I love poetry. Late at night I’d hear a few lines in a reel that stopped me mid-scroll, and by morning \
+        they were gone, buried under a hundred other videos. I wanted a quiet place to keep those words, one that \
+        never asks for an account and never sends anything anywhere. So I built Anamnesis, first for myself, and \
+        now for anyone who has wished they could hold on to something they heard.
+        """
+
+    private static let developer = "KEYUR DIPAKBHAI SAVALIA"
+    // A literal that is a valid URL; the force-unwrap cannot fail.
+    private static let developerURL = URL(string: "https://www.linkedin.com/in/keyursavalia")!
+
     var body: some View {
         ScrollView {
-            VStack(alignment: .leading, spacing: 36) {
+            VStack(alignment: .leading, spacing: 28) {
                 hero
                 name
-                VStack(alignment: .leading, spacing: 18) {
-                    Eyebrow("How it works", color: Theme.ember)
-                    Timeline(revealed: revealed)
-                }
-                beliefs
+                why
                 footer
             }
             .padding(.horizontal, 28)
-            .padding(.vertical, 24)
+            .padding(.vertical, 16)
             .frame(maxWidth: Theme.readingWidth)
             .frame(maxWidth: .infinity)
         }
+        .scrollBounceBehavior(.basedOnSize)
         .paperBackground()
         .navigationTitle("About")
         .navigationBarTitleDisplayMode(.inline)
@@ -32,8 +42,8 @@ struct AboutView: View {
     }
 
     private var hero: some View {
-        VStack(spacing: 14) {
-            AppMark(size: 96)
+        VStack(spacing: 12) {
+            AppMark(size: 80)
                 .scaleEffect(revealed ? 1 : 0.85)
                 .opacity(revealed ? 1 : 0)
             Text("Anamnesis").font(Theme.display(.largeTitle)).foregroundStyle(Theme.ink)
@@ -43,131 +53,55 @@ struct AboutView: View {
     }
 
     private var name: some View {
-        VStack(alignment: .leading, spacing: 12) {
+        VStack(alignment: .leading, spacing: 10) {
             Eyebrow("The name", color: Theme.ember)
             Text("ἀνάμνησις — *recollection*")
                 .font(Theme.verse(.title3))
                 .foregroundStyle(Theme.ink)
             Text("""
-                To the Greeks, anamnesis was the act of remembering: Plato thought that to learn something is to \
-                recall what we already knew. A poem you heard once in a reel, then lost to the scroll, is like that: \
-                you knew it, for a moment. Anamnesis helps you call it back, and keep it.
+                To the Greeks, anamnesis was the act of remembering. Something you heard once, then lost to the \
+                scroll, is like that: you knew it, for a moment. Anamnesis helps you call it back, and keep it.
                 """)
-                .font(.body)
+                .font(.subheadline)
                 .foregroundStyle(Theme.inkSecondary)
-                .lineSpacing(4)
+                .lineSpacing(3)
         }
     }
 
-    private var beliefs: some View {
-        VStack(alignment: .leading, spacing: 16) {
-            Eyebrow("What it stands for", color: Theme.ember)
-            belief("lock.fill", "Private by construction",
-                   "No account, no cloud, no analytics. What you hear stays on your phone.")
-            belief("text.quote", "The words are the point",
-                   "Audio is only a means; it is deleted once the poem is text you can read and edit.")
-            belief("person.fill", "Poets first",
-                   "Every card you share carries the poet’s name. Credit the people whose words move you.")
-        }
-    }
-
-    private func belief(_ symbol: String, _ title: String, _ text: String) -> some View {
-        HStack(alignment: .top, spacing: 14) {
-            Image(systemName: symbol)
-                .font(.headline)
-                .foregroundStyle(Theme.ember)
-                .frame(width: 36, height: 36)
-                .background(Theme.ember.opacity(0.12), in: .circle)
-            VStack(alignment: .leading, spacing: 3) {
-                Text(title).font(.headline).foregroundStyle(Theme.ink)
-                Text(text).font(.subheadline).foregroundStyle(Theme.inkSecondary)
-            }
+    private var why: some View {
+        VStack(alignment: .leading, spacing: 12) {
+            Eyebrow("Why it was built", color: Theme.ember)
+            Text(Self.why)
+                .font(Theme.verse(.body))
+                .italic()
+                .foregroundStyle(Theme.ink)
+                .lineSpacing(5)
+                .fixedSize(horizontal: false, vertical: true)
+                .padding(.leading, 16)
+                .overlay(alignment: .leading) {
+                    // A margin rule, like a quotation set in a book.
+                    Capsule().fill(Theme.ember.opacity(0.6)).frame(width: 2)
+                }
+                .opacity(revealed ? 1 : 0)
+                .offset(y: revealed ? 0 : 10)
         }
     }
 
     private var footer: some View {
-        let info = Bundle.main.infoDictionary
-        let version = info?["CFBundleShortVersionString"] as? String ?? "?"
-        let build = info?["CFBundleVersion"] as? String ?? "?"
-        return VStack(spacing: 6) {
+        let version = Bundle.main.infoDictionary?["CFBundleShortVersionString"] as? String ?? "?"
+        return VStack(spacing: 10) {
             Fleuron()
-            Text("Version \(version) (\(build))").font(.footnote).foregroundStyle(Theme.inkSecondary)
-            Text("Made for people who keep poems.").font(Theme.verse(.footnote)).italic()
-                .foregroundStyle(Theme.inkSecondary)
+            Text("Version \(version)").font(.footnote).foregroundStyle(Theme.inkSecondary)
+            // Present, not prominent: small, light, spaced capitals.
+            Link(destination: Self.developerURL) {
+                Text(Self.developer)
+                    .font(.caption2.weight(.medium))
+                    .tracking(1.6)
+                    .foregroundStyle(Theme.inkSecondary.opacity(0.7))
+            }
+            .accessibilityLabel("Made by Keyur Dipakbhai Savalia")
+            .accessibilityHint("Opens LinkedIn")
         }
         .frame(maxWidth: .infinity)
-        .padding(.top, 8)
     }
-}
-
-/// Hear → Listen → Transcribe → Keep, joined by a line that grows as the steps appear one after another.
-private struct Timeline: View {
-    let revealed: Bool
-
-    private struct Step {
-        let symbol: String
-        let title: String
-        let text: String
-    }
-
-    private static let steps = [
-        Step(symbol: "music.note", title: "Hear",
-             text: "A poem plays in a reel on TikTok, Instagram or anywhere else on your phone."),
-        Step(symbol: "switch.2", title: "Listen",
-             text: "Swipe down and tap Transcribe in Control Center, or tap the orb on Listen. Only the sound "
-                + "other apps play is heard, never your microphone."),
-        Step(symbol: "waveform.and.magnifyingglass", title: "Transcribe",
-             text: "When you stop, Apple’s speech recognition turns the recital into text, right on your phone."),
-        Step(symbol: "books.vertical.fill", title: "Keep",
-             text: "Each poem lands in your Library. Fix a word, add the poet, paste the reel’s link, share it "
-                + "as a card.")
-    ]
-
-    var body: some View {
-        VStack(alignment: .leading, spacing: 0) {
-            ForEach(Self.steps.indices, id: \.self) { index in
-                let step = Self.steps[index]
-                // Each circle's centre sits on its title's centre, whatever the title's size (Dynamic Type).
-                HStack(alignment: .stepTitle, spacing: 16) {
-                    VStack(spacing: 0) {
-                        Image(systemName: step.symbol)
-                            .font(.headline)
-                            .foregroundStyle(.white)
-                            .frame(width: 44, height: 44)
-                            .background(Theme.emberFill, in: .circle)
-                            .alignmentGuide(.stepTitle) { $0[VerticalAlignment.center] }
-                        if index < Self.steps.count - 1 {
-                            Rectangle()
-                                .fill(Theme.ember.opacity(0.35))
-                                .frame(width: 2)
-                                .frame(maxHeight: .infinity)
-                                .scaleEffect(y: revealed ? 1 : 0, anchor: .top)
-                        }
-                    }
-                    VStack(alignment: .leading, spacing: 4) {
-                        Text(step.title).font(Theme.display(.title3)).foregroundStyle(Theme.ink)
-                            .alignmentGuide(.stepTitle) { $0[VerticalAlignment.center] }
-                        Text(step.text).font(.subheadline).foregroundStyle(Theme.inkSecondary)
-                            .fixedSize(horizontal: false, vertical: true)
-                    }
-                    .padding(.bottom, 24)
-                }
-                // Rows are as tall as their text, so the connector line fills exactly that height.
-                .fixedSize(horizontal: false, vertical: true)
-                .opacity(revealed ? 1 : 0)
-                .offset(y: revealed ? 0 : 12)
-                .animation(.smooth(duration: 0.6).delay(Double(index) * 0.15), value: revealed)
-                .accessibilityElement(children: .combine)
-            }
-        }
-    }
-}
-
-private extension VerticalAlignment {
-    /// The centre of a timeline step's title, shared by its circle.
-    private enum StepTitle: AlignmentID {
-        static func defaultValue(in context: ViewDimensions) -> CGFloat { context[VerticalAlignment.center] }
-    }
-
-    static let stepTitle = VerticalAlignment(StepTitle.self)
 }
