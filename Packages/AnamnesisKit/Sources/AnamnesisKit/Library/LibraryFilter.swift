@@ -19,7 +19,6 @@ public struct LibraryFilter: Sendable, Equatable {
     }
 
     public var query: String { searchText.trimmingCharacters(in: .whitespacesAndNewlines) }
-    public var isFiltering: Bool { !query.isEmpty || poet != nil }
 
     /// Body, title and poet, case- and diacritic-insensitive (R2), and the poet filter (R3).
     public var predicate: Predicate<Poem> {
@@ -37,13 +36,19 @@ public struct LibraryFilter: Sendable, Equatable {
 
     /// The sort, on the poems the predicate returned.
     public func refine(_ poems: [Poem]) -> [Poem] {
-        poems.sorted { lhs, rhs in
+        if sort == .title {
+            // Each title once, not once per comparison: an untitled poem's title is read from its body.
+            return poems.map { (poem: $0, title: $0.displayTitle) }
+                .sorted { lhs, rhs in
+                    let order = lhs.title.localizedStandardCompare(rhs.title)
+                    return order == .orderedSame ? lhs.poem.createdAt > rhs.poem.createdAt : order == .orderedAscending
+                }
+                .map(\.poem)
+        }
+        return poems.sorted { lhs, rhs in
             switch sort {
-            case .newest:
+            case .newest, .title:
                 return lhs.createdAt > rhs.createdAt
-            case .title:
-                let order = lhs.displayTitle.localizedStandardCompare(rhs.displayTitle)
-                return order == .orderedSame ? lhs.createdAt > rhs.createdAt : order == .orderedAscending
             case .poet:
                 switch (lhs.poet, rhs.poet) {
                 case let (left?, right?) where left.localizedStandardCompare(right) != .orderedSame:
@@ -70,10 +75,20 @@ extension Poem {
 
     /// The first `count` non-empty lines, joined by " / ".
     public func firstLines(_ count: Int) -> String {
-        body.split(whereSeparator: \.isNewline)
-            .map { $0.trimmingCharacters(in: .whitespaces) }
-            .filter { !$0.isEmpty }
-            .prefix(count)
-            .joined(separator: " / ")
+        nonEmptyLines.prefix(count).joined(separator: " / ")
+    }
+
+    /// The body's non-empty lines, trimmed, read one at a time: a caller that needs the first few stops there
+    /// instead of splitting a long transcript whole.
+    public var nonEmptyLines: UnfoldSequence<String, Substring> {
+        sequence(state: body[...]) { rest in
+            while !rest.isEmpty {
+                let end = rest.firstIndex(where: \.isNewline) ?? rest.endIndex
+                let line = rest[..<end].trimmingCharacters(in: .whitespaces)
+                rest = end == rest.endIndex ? rest[end...] : rest[rest.index(after: end)...]
+                if !line.isEmpty { return line }
+            }
+            return nil
+        }
     }
 }
