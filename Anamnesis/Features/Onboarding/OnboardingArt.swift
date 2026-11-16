@@ -60,24 +60,35 @@ struct DriftingLine: View {
     private static let period = 8.0
 
     var body: some View {
-        Text(text)
-            .font(.system(.callout, design: .serif))
-            .italic()
-            .foregroundStyle(Night.cream)
-            .fixedSize()
-            .opacity(started ? 1 : 0)
-            .phaseAnimator([0.0, 1.0]) { line, progress in
-                let rise: CGFloat = -40 * progress
-                let fade: Double = animates ? sin(progress * .pi) * 0.32 : 0
-                line.offset(y: rise).opacity(fade)
-            } animation: { progress in
-                let duration: Double = progress == 1 ? Self.period : 0
-                return .linear(duration: duration)
+        // Inserted only after its delay, so each line's cycle really starts later (a phase animator starts when it
+        // appears; hiding it until the delay would leave every line rising in step). The hidden copy keeps the layout.
+        label
+            .hidden()
+            .overlay {
+                if started {
+                    label
+                        .phaseAnimator([0.0, 1.0]) { line, progress in
+                            let rise: CGFloat = -40 * progress
+                            let fade: Double = animates ? sin(progress * .pi) * 0.32 : 0
+                            line.offset(y: rise).opacity(fade)
+                        } animation: { progress in
+                            let duration: Double = progress == 1 ? Self.period : 0
+                            return .linear(duration: duration)
+                        }
+                }
             }
             .task {
                 try? await Task.sleep(for: .seconds(delay))
                 started = true
             }
+    }
+
+    private var label: some View {
+        Text(text)
+            .font(.system(.callout, design: .serif))
+            .italic()
+            .foregroundStyle(Night.cream)
+            .fixedSize()
     }
 }
 
@@ -174,7 +185,7 @@ struct AuroraBackground: View {
     var body: some View {
         TimelineView(.animation(minimumInterval: 1 / 30, paused: !animates)) { timeline in
             MeshGradient(width: 3, height: 3, points: points(timeline.date.timeIntervalSinceReferenceDate),
-                         colors: colors)
+                         colors: Self.colors(page))
         }
         .animation(.smooth(duration: 1.2), value: page)
         .ignoresSafeArea()
@@ -191,7 +202,8 @@ struct AuroraBackground: View {
         ]
     }
 
-    private var colors: [Color] {
+    /// Built once: the timeline asks for them every frame, and each `Color(light:dark:)` is a new dynamic `UIColor`.
+    private static let palettes: [[Color]] = {
         let ink = Night.base
         let plum = Color(light: 0x2A1A2E, dark: 0x2A1A2E)
         let ember = Color(light: 0x8E3018, dark: 0x8E3018)
@@ -199,11 +211,15 @@ struct AuroraBackground: View {
         let amber = Color(light: 0x6B4A1A, dark: 0x6B4A1A)
         let moss = Color(light: 0x24382B, dark: 0x24382B)
         let fern = Color(light: 0x3E5E47, dark: 0x3E5E47)
-        switch page {
-        case 0: return [ink, plum, ink, amber, ember, plum, ink, ink, ink]
-        case 1: return [ink, ember, plum, plum, fire, ink, ink, amber, ink]
-        default: return [ink, moss, ink, plum, fern, ink, ink, ink, moss]
-        }
+        return [
+            [ink, plum, ink, amber, ember, plum, ink, ink, ink],
+            [ink, ember, plum, plum, fire, ink, ink, amber, ink],
+            [ink, moss, ink, plum, fern, ink, ink, ink, moss]
+        ]
+    }()
+
+    private static func colors(_ page: Int) -> [Color] {
+        palettes[min(max(page, 0), palettes.count - 1)]
     }
 }
 
