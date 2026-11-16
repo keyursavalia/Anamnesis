@@ -91,6 +91,11 @@ struct PoemShareCard: View {
     }
 }
 
+extension PoemShareCard.Style {
+    /// The card's own background, for the style picker's swatch.
+    var swatch: AnyShapeStyle { Palette(self).background }
+}
+
 /// Fixed colours per style (the card is an image; it must not follow the viewer's appearance).
 private struct Palette {
     let background: AnyShapeStyle
