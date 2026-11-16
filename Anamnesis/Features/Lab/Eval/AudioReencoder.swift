@@ -24,6 +24,21 @@ nonisolated enum AudioReencoder {
               let outBuffer = AVAudioPCMBuffer(pcmFormat: target, frameCapacity: outFrames) else {
             throw TranscriptionError.fileUnreadable("cannot allocate conversion buffers")
         }
+        do {
+            try convert(input, inBuffer: inBuffer, with: converter, into: outBuffer, file: file)
+        } catch {
+            // A partial file would be transcribed as if it were the whole clip.
+            file.close()
+            try? FileManager.default.removeItem(at: output)
+            throw error
+        }
+        file.close()
+        return output
+    }
+
+    private static func convert(_ input: AVAudioFile, inBuffer: AVAudioPCMBuffer, with converter: AVAudioConverter,
+                                into outBuffer: AVAudioPCMBuffer, file: AVAudioFile) throws {
+        let inFrames = inBuffer.frameCapacity
         var inputDone = false
         var readError: (any Error)?
         while true {
@@ -50,11 +65,13 @@ nonisolated enum AudioReencoder {
                 return inBuffer
             }
             if let error = conversionError ?? readError { throw error }
+            // `.error` does not always come with an `NSError` (review follow-up 7).
+            if status == .error {
+                throw TranscriptionError.fileUnreadable("conversion failed for \(input.url.lastPathComponent)")
+            }
             if outBuffer.frameLength > 0 { try file.write(from: outBuffer) }
-            if status == .endOfStream || status == .error { break }
+            if status == .endOfStream { break }
         }
-        file.close()
-        return output
     }
 }
 #endif
