@@ -84,8 +84,8 @@ struct RawDumpSinkTests {
             runLabel: "", backend: .screenCaptureKit, config: .init(), device: .current(), app: .current())
         let sink = try RawDumpSink(directory: directory)
         let pipeline = AudioIngestPipeline(recorder: recorder, rawDump: sink)
-        pipeline.ingest(try SampleBufferFactory.int16Interleaved([9, 9]), type: .audioMic)
-        pipeline.ingest(try SampleBufferFactory.int16Interleaved([1, 2, 3, 4]), type: .audioApp)
+        pipeline.ingest(try SampleBufferFactory.int16Interleaved([9, 9]), type: .microphone)
+        pipeline.ingest(try SampleBufferFactory.int16Interleaved([1, 2, 3, 4]), type: .audio)
         #expect(try readBack(try #require(sink.finish())).frames == 4)
     }
 }
