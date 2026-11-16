@@ -39,8 +39,9 @@ final class LibraryStore {
         let importer = importer
         do {
             let imported = try await importer.importedSessionIDs()
+            let stopRecorded = try await importer.sessionIDsWithStopRecord()
             let (snapshots, pending) = await Task.detached {
-                (summaries.compactMap(Self.snapshot),
+                (summaries.compactMap { Self.snapshot($0, readsRecord: !stopRecorded.contains($0.id)) },
                  summaries.filter { $0.hasTranscript && !imported.contains($0.id) }.compactMap(Self.readTranscript))
             }.value
             let inserted = try await importer.sync(snapshots)
@@ -73,8 +74,14 @@ final class LibraryStore {
     }
 
     /// nil for a session still being written or whose manifest is unreadable (recovery rebuilds it).
-    private nonisolated static func snapshot(_ summary: SpoolSessionSummary) -> SessionSnapshot? {
+    /// `readsRecord` false: the row already holds what `capture.json` gives, so the file is not read on every
+    /// refresh (review follow-up 3). Its stop fields stay nil, which the importer reads as "no change".
+    private nonisolated static func snapshot(_ summary: SpoolSessionSummary, readsRecord: Bool) -> SessionSnapshot? {
         guard summary.isDone, let manifest = summary.manifest else { return nil }
+        guard readsRecord else {
+            return SessionSnapshot(spoolSessionID: summary.id, startedAt: manifest.createdAt,
+                                   durationSec: manifest.durationSec, hasAudio: summary.hasAudio)
+        }
         let record = try? CaptureRecord.read(from: summary.session.captureRecordURL)
         return SessionSnapshot(
             spoolSessionID: summary.id, startedAt: record?.startedAt ?? manifest.createdAt,
