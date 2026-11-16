@@ -115,9 +115,11 @@ struct AppSettingsView: View {
                 .font(.headline)
                 .foregroundStyle(.white)
                 .frame(maxWidth: .infinity)
-                .padding(.vertical, 14)
-                .background(Theme.danger.opacity(isDeleteDisabled ? 0.4 : 1),
-                            in: .rect(cornerRadius: 14, style: .continuous))
+                .padding(.vertical, 15)
+                // A capsule like the app's other buttons; its round ends match the row's own corners, so the row
+                // no longer clips it unevenly.
+                .background(Theme.dangerFill.opacity(isDeleteDisabled ? 0.4 : 1), in: .capsule)
+                .contentShape(.capsule)
             }
             .buttonStyle(CardButtonStyle())
             .disabled(isDeleteDisabled)
