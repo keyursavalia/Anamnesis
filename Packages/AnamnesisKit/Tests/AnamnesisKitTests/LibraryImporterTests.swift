@@ -157,6 +157,19 @@ struct LibraryImporterTests {
         #expect(try await importer.transcribableSessionIDs(maxAttempts: 3) == ["a"])
     }
 
+    @Test("only rows with both a stop time and a stop reason count as having their stop record")
+    func stopRecordedIDs() async throws {
+        let (importer, _) = try makeImporter()
+        try await importer.sync([
+            SessionSnapshot(spoolSessionID: "full", startedAt: start, stoppedAt: start, durationSec: 1,
+                            stopReason: "user", hasAudio: true),
+            SessionSnapshot(spoolSessionID: "noReason", startedAt: start, stoppedAt: start, durationSec: 1,
+                            hasAudio: true),
+            SessionSnapshot(spoolSessionID: "none", startedAt: start, durationSec: 1, hasAudio: true)
+        ])
+        #expect(try await importer.sessionIDsWithStopRecord() == ["full"])
+    }
+
     @Test("a sync with nothing new saves nothing; a real change saves once")
     func syncSavesOnlyChanges() async throws {
         let (importer, container) = try makeImporter()
