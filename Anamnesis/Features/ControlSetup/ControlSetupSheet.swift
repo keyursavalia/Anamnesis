@@ -1,6 +1,6 @@
 import SwiftUI
 
-/// "Capture from any app" (spec 015 R9): shown right after the welcome and from Settings. While it is open it
+/// "Transcribe from any app" (spec 015 R9): shown right after the welcome and from Settings. While it is open it
 /// re-checks every 1.5 s, because Control Center opens over the app without backgrounding it; the moment the
 /// control is placed the guide turns into a "You're set" screen.
 struct ControlSetupSheet: View {
@@ -19,7 +19,7 @@ struct ControlSetupSheet: View {
                         header
                         ControlSetupGuide().card()
                         Text("""
-                            You can also put **Capture poem** on the Lock Screen, or on the Action Button \
+                            You can also put **Transcribe** on the Lock Screen, or on the Action Button \
                             (Settings → Action Button → Controls).
                             """)
                             .font(.footnote)
@@ -57,11 +57,11 @@ struct ControlSetupSheet: View {
                 .foregroundStyle(Theme.ember)
                 .frame(width: 76, height: 76)
                 .background(Theme.ember.opacity(0.12), in: .rect(cornerRadius: 22, style: .continuous))
-            Text("Capture from any app")
+            Text("Transcribe from any app")
                 .font(Theme.display(.title))
                 .multilineTextAlignment(.center)
             Text("""
-                Add **Capture poem** to Control Center. When a poem starts in a reel, swipe down and tap it; \
+                Add **Transcribe** to Control Center. When a poem starts in a reel, swipe down and tap it; \
                 you never leave TikTok or Instagram.
                 """)
                 .font(.callout)
@@ -78,13 +78,13 @@ struct ControlSetupSheet: View {
                     .buttonStyle(ProminentButtonStyle(tint: Theme.sage))
             case .notAdded, .unknown:
                 Label {
-                    Text("Waiting for Capture poem…")
+                    Text("Waiting for Transcribe…")
                 } icon: {
                     ProgressView().controlSize(.small)
                 }
                 .font(.footnote)
                 .foregroundStyle(Theme.inkSecondary)
-                .accessibilityLabel("Waiting for you to add Capture poem")
+                .accessibilityLabel("Waiting for you to add Transcribe")
                 Button { dismiss() } label: { Text("Later").frame(maxWidth: .infinity) }
                     .buttonStyle(QuietButtonStyle())
             case .unavailable:
@@ -113,7 +113,7 @@ private struct AddedView: View {
             Text("You’re set")
                 .font(Theme.display(.largeTitle))
             Text("""
-                **Capture poem** is in place. Next time a poem plays, swipe down and tap it. Tap again, or the \
+                **Transcribe** is in place. Next time a poem plays, swipe down and tap it. Tap again, or the \
                 red indicator, to stop.
                 """)
                 .font(.callout)
