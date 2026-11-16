@@ -1,15 +1,18 @@
 import SwiftUI
 
-/// The welcome (spec 015 R1, redesigned in spec 016 R8–R9): three pages on a dark, slowly moving glow ("night
-/// recital"): what Anamnesis does, how to capture (the Control Center control first, it is the quickest), and the
-/// privacy promise. Shown once on first launch and again from Settings → How it works. Always dark, whatever the
-/// system appearance, so it feels like a stage rather than a form. Reduce Motion stills every animation.
+/// The welcome (spec 015 R1, redesigned in spec 016 R8–R9, spec 020 R8/R7): four pages on a dark, slowly moving glow
+/// ("night recital"): what Anamnesis does, how to start (the Control Center control first, it is the quickest), the
+/// privacy promise, and *Getting ready*, where the speech model downloads. The download starts as the welcome
+/// opens, so it is usually done by the last page; it never blocks *Get started*. Shown once on first launch and again
+/// from Settings → How it works. Always dark, whatever the system appearance, so it feels like a stage rather than a
+/// form. Reduce Motion stills every animation.
 struct OnboardingView: View {
     let finish: () -> Void
     @State private var page = 0
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
+    @Environment(AppEnvironment.self) private var environment
 
-    private static let pageCount = 3
+    private static let pageCount = 4
 
     var body: some View {
         ZStack {
@@ -19,12 +22,15 @@ struct OnboardingView: View {
                     WelcomePage(isActive: page == 0, animates: !reduceMotion).tag(0)
                     CapturePage(isActive: page == 1, animates: !reduceMotion).tag(1)
                     PrivacyPage(isActive: page == 2).tag(2)
+                    ReadyPage(isActive: page == 3).tag(3)
                 }
                 .tabViewStyle(.page(indexDisplayMode: .never))
                 controls
             }
         }
         .environment(\.colorScheme, .dark)
+        // A new user's speech model (spec 020 R7): one system download, started now so it is ready by the end.
+        .task { await environment.transcripts?.prepareModel() }
         .overlay(alignment: .topTrailing) {
             if page < Self.pageCount - 1 {
                 Button("Skip", action: finish)
@@ -91,13 +97,24 @@ private struct WelcomePage: View {
             }
             .frame(height: 230)
         } content: {
-            Text("Keep the poems\nyou hear.")
-                .font(.system(.largeTitle, design: .serif, weight: .semibold))
-                .foregroundStyle(Night.cream)
-                .multilineTextAlignment(.center)
-                .reveal(isActive, delay: 0.1)
+            // The noun rolls like the Transcribe tab's heading (spec 020 R8): poems → speeches → stories → plans.
+            VStack(spacing: 0) {
+                HStack(alignment: .firstTextBaseline, spacing: 0) {
+                    Text("Keep the")
+                    RollingWord(words: RollingWords.plural).foregroundStyle(Night.glow)
+                }
+                Text("you hear.")
+            }
+            .frame(maxWidth: .infinity)
+            .font(.system(.largeTitle, design: .serif, weight: .semibold))
+            .foregroundStyle(Night.cream)
+            .multilineTextAlignment(.center)
+            .accessibilityElement(children: .ignore)
+            .accessibilityLabel("Keep the poems, speeches, stories and plans you hear.")
+            .accessibilityAddTraits(.isHeader)
+            .reveal(isActive, delay: 0.1)
             Text("""
-                Anamnesis can listen to the reels you’re watching and turn the poem into words you can keep, \
+                Anamnesis listens to the media you’re playing and turns what’s said into words you can keep, \
                 share and visit again.
                 """)
                 .font(.body)
@@ -129,8 +146,8 @@ private struct CapturePage: View {
                 .multilineTextAlignment(.center)
                 .reveal(isActive, delay: 0.1)
             Text("""
-                Add **Transcribe** to Control Center. When a poem starts, swipe down and tap it. You never \
-                leave TikTok or Instagram, and you never miss the first line.
+                Add **Transcribe** to Control Center. When something worth keeping starts, swipe down and tap \
+                it. You never leave your media, and you never miss the first word.
                 """)
                 .font(.body)
                 .foregroundStyle(Night.secondary)
@@ -140,10 +157,10 @@ private struct CapturePage: View {
             VStack(spacing: 8) {
                 Option(symbol: "switch.2", title: "Transcribe control", detail: "Fastest · from any app",
                        highlighted: true)
-                Option(symbol: "waveform", title: "Or the Listen button", detail: "Open Anamnesis, tap the orb",
+                Option(symbol: "waveform", title: "Or the Transcribe tab", detail: "Open Anamnesis, tap the orb",
                        highlighted: false)
                 Option(symbol: "books.vertical.fill", title: "Then it’s in your Library",
-                       detail: "Stop, and each poem lands there", highlighted: false)
+                       detail: "Stop, and the transcript lands there", highlighted: false)
             }
             .reveal(isActive, delay: 0.4)
         }
@@ -179,6 +196,63 @@ private struct PrivacyPage: View {
             }
             .reveal(isActive, delay: 0.25)
         }
+    }
+}
+
+/// Spec 020 R7: the speech model's one-time download, shown as a ring around the orb's symbol. It runs on through
+/// *Get started*; recordings made before it lands wait and transcribe themselves.
+private struct ReadyPage: View {
+    let isActive: Bool
+    @Environment(AppEnvironment.self) private var environment
+
+    var body: some View {
+        let state = environment.transcripts?.assets.state ?? .unknown
+        PageLayout {
+            ZStack {
+                Circle().fill(tint(state).opacity(0.18)).frame(width: 170, height: 170).blur(radius: 30)
+                Circle().stroke(.white.opacity(0.12), lineWidth: 6).frame(width: 132, height: 132)
+                Circle()
+                    .trim(from: 0, to: state.setupProgress)
+                    .stroke(tint(state), style: StrokeStyle(lineWidth: 6, lineCap: .round))
+                    .rotationEffect(.degrees(-90))
+                    .frame(width: 132, height: 132)
+                    .animation(.smooth, value: state.setupProgress)
+                Image(systemName: state.isInstalled ? "checkmark" : "waveform")
+                    .font(.system(size: 52, weight: .semibold))
+                    .foregroundStyle(Night.cream)
+                    .contentTransition(.symbolEffect(.replace))
+            }
+            .frame(height: 230)
+            .accessibilityHidden(true)
+        } content: {
+            Text(state.isInstalled ? "All set." : "Getting ready.")
+                .font(.system(.largeTitle, design: .serif, weight: .semibold))
+                .foregroundStyle(Night.cream)
+                .contentTransition(.opacity)
+                .reveal(isActive, delay: 0.1)
+            Text("""
+                Apple’s speech recognition downloads once, through the system. After that, everything runs on \
+                this device, even offline.
+                """)
+                .font(.body)
+                .foregroundStyle(Night.secondary)
+                .multilineTextAlignment(.center)
+                .lineSpacing(3)
+                .reveal(isActive, delay: 0.25)
+            Option(symbol: "arrow.down.circle", title: "English speech model", detail: state.setupDetail,
+                   highlighted: false)
+                .reveal(isActive, delay: 0.4)
+            if !state.isInstalled {
+                Text("You can start now. It finishes in the background.")
+                    .font(.footnote)
+                    .foregroundStyle(Night.secondary)
+                    .reveal(isActive, delay: 0.5)
+            }
+        }
+    }
+
+    private func tint(_ state: AssetState) -> Color {
+        state.isInstalled ? Night.sage : Night.glow
     }
 }
 
@@ -262,4 +336,5 @@ private extension View {
 
 #Preview {
     OnboardingView {}
+        .environment(AppEnvironment())
 }
