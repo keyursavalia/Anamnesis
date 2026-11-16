@@ -1,6 +1,6 @@
 import SwiftUI
 
-/// The four steps to add *Capture poem* (spec 015 R9), with a drawn phone that acts each one out in turn. The
+/// The four steps to add *Transcribe* (spec 015 R9), with a drawn phone that acts each one out in turn. The
 /// highlighted step and the drawing advance together; tapping a step jumps to it.
 struct ControlSetupGuide: View {
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
@@ -10,7 +10,7 @@ struct ControlSetupGuide: View {
         "Swipe down from the **top-right corner** to open Control Center.",
         "Tap **+** in the top-left corner.",
         "Tap **Add a Control** at the bottom.",
-        "Search **Anamnesis** and tap **Capture poem**."
+        "Search **Anamnesis** and tap **Transcribe**."
     ]
 
     var body: some View {
@@ -163,7 +163,7 @@ private struct MiniPhone: View {
                     .frame(width: 44, height: 44)
                     .background(Theme.emberFill, in: .rect(cornerRadius: 12))
                     .modifier(Pulse(isActive: true))
-                Text("Capture poem")
+                Text("Transcribe")
                     .font(.system(size: 9, weight: .semibold))
                     .foregroundStyle(.white)
             }
