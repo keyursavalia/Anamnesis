@@ -20,7 +20,8 @@ struct GlowingMark: View {
     }
 }
 
-/// Public-domain lines (Dickinson, Keats, Wordsworth, Blake, Shelley) drifting up and fading, like half-heard verse.
+/// Half-heard lines drifting up and fading: a poem, a speech, a story, a plan (spec 020: the app keeps anything
+/// spoken). Public domain (Dickinson, Lincoln, Wordsworth) or written for the app.
 struct FloatingVerses: View {
     let animates: Bool
 
@@ -32,10 +33,10 @@ struct FloatingVerses: View {
 
     private static let lines = [
         Line(text: "Hope is the thing with feathers", offset: CGSize(width: -70, height: -70), delay: 0),
-        Line(text: "A thing of beauty is a joy for ever", offset: CGSize(width: 60, height: 80), delay: 1.6),
-        Line(text: "I wandered lonely as a cloud", offset: CGSize(width: 80, height: -100), delay: 3.2),
-        Line(text: "Tyger Tyger, burning bright", offset: CGSize(width: -80, height: 100), delay: 4.8),
-        Line(text: "If Winter comes, can Spring be far behind?", offset: CGSize(width: 0, height: 10), delay: 6.4)
+        Line(text: "Four score and seven years ago", offset: CGSize(width: 60, height: 80), delay: 1.6),
+        Line(text: "Once upon a time, by the sea", offset: CGSize(width: 80, height: -100), delay: 3.2),
+        Line(text: "First, we leave at dawn", offset: CGSize(width: -80, height: 100), delay: 4.8),
+        Line(text: "I wandered lonely as a cloud", offset: CGSize(width: 0, height: 10), delay: 6.4)
     ]
 
     var body: some View {
@@ -137,7 +138,7 @@ struct ControlCenterMock: View {
             let isOn = animates ? (beat == .lit || beat == .hold) : true
             ZStack(alignment: .bottomTrailing) {
                 VStack(spacing: 4) {
-                    Image(systemName: isOn ? "waveform" : "text.quote")
+                    Image(systemName: "waveform")
                         .font(.title2.weight(.semibold))
                         .symbolEffect(.variableColor.iterative, options: .repeating, isActive: isOn && animates)
                     Text(isOn ? "Listening" : "Transcribe")
