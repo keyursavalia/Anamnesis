@@ -55,7 +55,7 @@ public final class AudioIngestPipeline {
 
     public func ingest(_ sampleBuffer: CMSampleBuffer, type: ProbeReport.BufferType) {
         // Video and microphone buffers are only counted (spec 001 §4.2/§4.4).
-        guard type == .audio || type == .audioApp else {
+        guard type == .audio else {
             recorder.recordBuffer(type)
             return
         }
