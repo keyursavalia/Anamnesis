@@ -28,6 +28,8 @@ final class CaptureController {
     @ObservationIgnored private var current: (session: SpoolSession, record: CaptureRecord)?
     /// Record writes run in order off the main actor.
     @ObservationIgnored private var lastRecordWrite: Task<Void, Never>?
+    /// The grace period after the app comes back while still `choosing` (see `sceneBecameActive`).
+    @ObservationIgnored private var choosingWatchdog: Task<Void, Never>?
 
     #if canImport(ScreenCaptureKit)
     /// nil only if Application Support is unwritable (no run folder for the report).
@@ -101,6 +103,33 @@ final class CaptureController {
         #endif
     }
 
+    /// The orb tapped while `choosing`: the user can see our screen, so the picker is gone without telling us.
+    func cancelPendingStart() {
+        #if canImport(ScreenCaptureKit)
+        backend?.abandonPickerRequest()
+        #endif
+        // No backend request was pending (it already resolved): the phase alone was stale.
+        if phase == .choosing { phase = .idle }
+    }
+
+    /// The app is in front again. If it is still `choosing` a moment later, with no confirm being set up, the picker
+    /// went away unreported (a dismissal right after presenting). Only the screen resets: the picker stays armed,
+    /// so a confirm that does arrive late still starts a capture.
+    func sceneBecameActive() {
+        choosingWatchdog?.cancel()
+        guard phase == .choosing else { return }
+        choosingWatchdog = Task { [weak self] in
+            try? await Task.sleep(for: .seconds(1.5))
+            guard let self, !Task.isCancelled, phase == .choosing,
+                  UIApplication.shared.applicationState == .active else { return }
+            #if canImport(ScreenCaptureKit)
+            if backend?.isStartingStream == true { return }
+            #endif
+            log.notice("choosing reset: no picker outcome 1.5 s after returning to the app")
+            phase = .idle
+        }
+    }
+
     @discardableResult
     func stop() async -> ProbeRun? {
         #if canImport(ScreenCaptureKit)
@@ -128,7 +157,9 @@ final class CaptureController {
 
     private func updatePhase(with event: CaptureEvent) {
         switch event {
-        case .pickerPresented: phase = .choosing
+        case .pickerPresented:
+            choosingWatchdog?.cancel()
+            phase = .choosing
         case .started: phase = .capturing(since: Date())
         case .pickerCancelled, .pickerFailed, .startFailed, .stopped: phase = .idle
         case .filterReceived: break
