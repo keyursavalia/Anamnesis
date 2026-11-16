@@ -10,13 +10,13 @@ struct CapturePoemControl: ControlWidget {
     var body: some ControlWidgetConfiguration {
         StaticControlConfiguration(kind: AppIdentifiers.ControlKind.capture, provider: CaptureStateProvider()) { isOn in
             ControlWidgetToggle(isOn: isOn, action: CaptureToggleIntent()) {
-                Label("Capture poem", systemImage: "text.quote")
+                Label("Transcribe", systemImage: "text.quote")
             } valueLabel: { isOn in
                 Text(isOn ? "Listening" : "Off")
             }
         }
-        .displayName("Capture poem")
-        .description("Captures the audio playing on this device without leaving the app you are in.")
+        .displayName("Transcribe")
+        .description("Transcribes the audio playing on this device without leaving the app you are in.")
     }
 }
 
