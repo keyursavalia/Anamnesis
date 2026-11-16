@@ -10,7 +10,6 @@ public struct LevelMeasurement: Sendable, Equatable, Codable {
         self.rms = rms
     }
 
-    public var peakDBFS: Float { LevelMath.dbfs(peak) }
     public var rmsDBFS: Float { LevelMath.dbfs(rms) }
 
     /// Spec 001 §4.3: a buffer is silent when its peak is below `threshold` full scale.
