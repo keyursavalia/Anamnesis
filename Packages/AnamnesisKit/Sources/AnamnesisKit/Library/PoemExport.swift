@@ -1,6 +1,7 @@
 import Foundation
 
-/// A poem as plain values for Copy and the share card (spec 014 R1; spec 016 R6 removed Markdown and tags).
+/// A transcript (stored as `Poem`) as plain values for Copy and the share card (spec 014 R1; spec 016 R6 removed
+/// Markdown and tags; spec 020 generalised the wording).
 public struct PoemExport: Sendable, Equatable {
     public var title: String?
     public var poet: String?
@@ -22,10 +23,10 @@ public struct PoemExport: Sendable, Equatable {
     public var heading: String {
         if let title, !title.isEmpty { return title }
         return body.split(whereSeparator: \.isNewline).lazy
-            .map { $0.trimmingCharacters(in: .whitespaces) }.first { !$0.isEmpty } ?? "Poem"
+            .map { $0.trimmingCharacters(in: .whitespaces) }.first { !$0.isEmpty } ?? "Transcript"
     }
 
-    /// Title, "— Poet", the body, and the source on its own line.
+    /// Title, "— Speaker", the body, and the source on its own line.
     public var plainText: String {
         var header = [title, poet.map { "— \($0)" }].compactMap(\.self).joined(separator: "\n")
         if !header.isEmpty { header += "\n\n" }
