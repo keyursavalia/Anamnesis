@@ -94,10 +94,6 @@ final class AssetManager {
         installTask = nil
     }
 
-    var isInstalling: Bool {
-        if case .installing = state { true } else { false }
-    }
-
     func loadLocales() async {
         supportedLocales = await SpeechTranscriber.supportedLocales
             .sorted { $0.identifier < $1.identifier }
@@ -132,6 +128,9 @@ final class AssetManager {
             }
             defer { poller.cancel() }
             try await request.downloadAndInstall()
+            // Stopped before the refresh: left running through its `await`s, the poller could overwrite
+            // `.installed` with `.installing(1.0)`, so waiting recordings never started (review B2).
+            poller.cancel()
             log.notice("asset install finished locale=\(resolved.identifier)")
             await refresh(locale: resolved, config: config)
             await loadLocales()
