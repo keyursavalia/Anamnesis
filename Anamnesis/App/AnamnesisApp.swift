@@ -10,6 +10,7 @@ struct AnamnesisApp: App {
 
     init() {
         Theme.applyAppearance()
+        AppTips.configure()
     }
 
     var body: some Scene {
@@ -25,6 +26,9 @@ struct AnamnesisApp: App {
                     environment.reloadControl()
                     Task { await environment.refreshSessions() }
                     environment.controlCenter.refreshAfterReturning()
+                    AppTips.appBecameActive()
+                    // A new user's speech model, or one an offline first launch could not fetch (spec 020 R7).
+                    Task { await environment.transcripts?.prepareModel() }
                 }
                 .onOpenURL { environment.open($0) }
                 .modelContainer(environment.library.container)
