@@ -25,21 +25,6 @@ public struct SpoolReader: Sendable {
 
     public var totalFrames: Int { segments.reduce(0) { $0 + $1.info.frames } }
 
-    /// Calls `body` with consecutive buffers (≤ `frameCapacity` frames, spool format) and the timeline offset in
-    /// seconds of each buffer's first frame. The buffer is reused between calls; copy what you keep.
-    public func forEachBuffer(
-        frameCapacity: AVAudioFrameCount = 16_000,
-        _ body: (AVAudioPCMBuffer, _ startOffsetSec: Double) throws -> Void
-    ) throws {
-        var cursor = makeCursor()
-        guard let buffer = AVAudioPCMBuffer(pcmFormat: cursor.processingFormat, frameCapacity: frameCapacity) else {
-            throw SpoolError.fileFailed("buffer for session \(manifest.sessionID)")
-        }
-        while let chunk = try cursor.read(into: buffer) {
-            try body(buffer, chunk.startOffsetSec)
-        }
-    }
-
     public func makeCursor() -> Cursor { Cursor(reader: self) }
 
     /// Where one buffer read by a `Cursor` sits on the session timeline.
@@ -53,6 +38,9 @@ public struct SpoolReader: Sendable {
     /// Pull-based reading for consumers that ask for one buffer at a time (spec 003 R4: the analyzer's input
     /// sequence). Holds at most one open segment file. Not Sendable: keep it on one task.
     public struct Cursor {
+        /// Spool format as `AVAudioFile` reads it (Int16 interleaved); size buffers for `read(into:)` with it.
+        /// Built once: the analyzer's input sequence asks for it on every buffer.
+        public let processingFormat: AVAudioFormat
         private let reader: SpoolReader
         private var segmentIndex = 0
         private var file: AVAudioFile?
@@ -62,13 +50,10 @@ public struct SpoolReader: Sendable {
 
         init(reader: SpoolReader) {
             self.reader = reader
-        }
-
-        /// Spool format as `AVAudioFile` reads it (Int16 interleaved); size buffers for `read(into:)` with it.
-        public var processingFormat: AVAudioFormat {
             // Safe: SpoolFormat is always 16-bit PCM with 1–2 channels, which AVAudioFormat accepts.
-            AVAudioFormat(commonFormat: .pcmFormatInt16, sampleRate: reader.manifest.format.sampleRate,
-                          channels: AVAudioChannelCount(reader.manifest.format.channels), interleaved: true)!
+            processingFormat = AVAudioFormat(
+                commonFormat: .pcmFormatInt16, sampleRate: reader.manifest.format.sampleRate,
+                channels: AVAudioChannelCount(reader.manifest.format.channels), interleaved: true)!
         }
 
         /// Fills `buffer` with the next frames (never crossing a segment); nil at the end of the timeline.
