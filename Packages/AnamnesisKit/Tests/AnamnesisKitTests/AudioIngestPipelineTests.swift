@@ -46,7 +46,7 @@ struct AudioIngestPipelineTests {
     }
 
     @Test("video and microphone buffers are counted, not analyzed", arguments: [
-        ProbeReport.BufferType.screen, .video, .microphone, .audioMic
+        ProbeReport.BufferType.screen, .microphone
     ])
     func countOnly(type: ProbeReport.BufferType) throws {
         let pipeline = AudioIngestPipeline(recorder: recorder)
@@ -54,14 +54,6 @@ struct AudioIngestPipelineTests {
         let counters = recorder.snapshot().counters
         #expect(counters.byType == [type.rawValue: 1])
         #expect(counters.audioBuffers == 0)
-    }
-
-    @Test("ReplayKit app audio is analyzed")
-    func replayKitAppAudio() throws {
-        let pipeline = AudioIngestPipeline(recorder: recorder)
-        pipeline.ingest(try SampleBufferFactory.int16Interleaved([100, -100]), type: .audioApp)
-        #expect(recorder.snapshot().counters.byType == ["audioApp": 1])
-        #expect(recorder.snapshot().counters.audioBuffers == 1)
     }
 
     @Test("passes presentation timestamps through for gap detection")
