@@ -41,6 +41,8 @@ final class TranscriptionLabViewModel {
     var lineBreakConfig = LineBreakConfig()
 
     let assets: AssetManager
+    /// The queue's own manager: its first-run download must not run beside one started here (review follow-up 6).
+    private let appAssets: AssetManager?
     private(set) var job: JobState = .idle
     private(set) var audioSec: Double?
     private(set) var analyzerFormat: String?
@@ -57,6 +59,7 @@ final class TranscriptionLabViewModel {
     init(environment: AppEnvironment) {
         log = environment.log(.lab)
         assets = AssetManager(log: environment.log(.transcribe))
+        appAssets = environment.transcripts?.assets
         service = TranscriptionService(log: environment.log(.transcribe))
         localeID = UserDefaults.standard.string(forKey: Self.localeKey) ?? "en_US"
     }
@@ -79,7 +82,12 @@ final class TranscriptionLabViewModel {
     }
 
     func refreshAssets() async { await assets.refresh(locale: locale, config: config) }
-    func installAssets() async { await assets.install(locale: locale, config: config) }
+    func installAssets() async { await assets.ensureInstalled(locale: locale, config: config) }
+
+    /// The app is downloading the model itself; the Lab waits rather than start a second install.
+    var isAppInstalling: Bool {
+        if case .installing = appAssets?.state { true } else { false }
+    }
 
     // MARK: - Jobs
 
