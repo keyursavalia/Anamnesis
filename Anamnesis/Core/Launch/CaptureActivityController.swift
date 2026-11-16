@@ -16,6 +16,8 @@ final class CaptureActivityController {
 
     private let log: AppLog
     private var lastCall: Task<Void, Never>?
+    /// The announced card's wait before the end (spec 018); cancelled when the app comes forward.
+    private var announceHold: Task<Void, Never>?
 
     init(log: AppLog) {
         self.log = log
@@ -61,18 +63,36 @@ final class CaptureActivityController {
         }
     }
 
-    /// Any stop, including from the recording indicator (R3): `saved` for 15 min, or `failed` and gone (R6).
+    /// The app is in front, so a saved or failed activity has done its job. Tapping a Live Activity only opens the
+    /// app (its `widgetURL`), it never dismisses it: without this the saved card stayed up for its 15 min. Cuts an
+    /// announcement short; an activity still waiting or listening is kept.
+    func dismissFinished() {
+        announceHold?.cancel()
+        enqueue { log in
+            let finished = CaptureActivity.activities.filter { !$0.content.state.isActive }
+            guard !finished.isEmpty else { return }
+            log.notice("activity: dismissing \(finished.count) finished (app in front)")
+            for activity in finished { await Self.end(activity, with: nil, dismissal: .immediate, log: log) }
+        }
+    }
+
+    /// Any stop, including from the recording indicator (R3). Stopped from outside the app, `saved` stays on the Lock
+    /// Screen for 15 min (or until the app comes forward, `dismissFinished`); otherwise it is gone at once (R6).
     ///
     /// `announce` (spec 018, owner: "like Shazam"): when the stop came from outside the app, a saved capture is first
     /// updated with an alert, so the Dynamic Island expands into the *Poem captured · Open* card (a banner on
     /// iPhones without one), and ended `announceSeconds` later; `end` cannot carry an alert, and ending at once would
     /// cut the card short. A background task keeps the process alive for that wait. With the app in front there is
-    /// nothing to announce: the activity ends at once, as before.
+    /// nothing to announce: the activity ends and is dismissed at once.
     func captureStopped(sessionID: String?, capturedSeconds: Double, announce: Bool) {
         let state = CaptureActivityState.stopped(sessionID: sessionID, capturedSeconds: capturedSeconds)
-        let dismissal: ActivityUIDismissalPolicy = state.dismissalDelay > 0
+        let dismissal: ActivityUIDismissalPolicy = announce && state.dismissalDelay > 0
             ? .after(Date().addingTimeInterval(state.dismissalDelay)) : .immediate
         let alert = announce && state.phase == .saved ? Self.announcement(for: state) : nil
+        let hold: Task<Void, Never>? = alert.map { _ in
+            Task { _ = try? await Task.sleep(for: .seconds(Self.announceSeconds)) }
+        }
+        announceHold = hold
         // Ended by the chain well inside the ~30 s the system grants; no expiration handler needed for an 8 s wait.
         let keepAlive = alert.map { _ in UIApplication.shared.beginBackgroundTask(withName: "activity-announce") }
         enqueue { log in
@@ -82,7 +102,7 @@ final class CaptureActivityController {
             if let alert, !current.isEmpty {
                 for activity in current { await activity.update(content, alertConfiguration: alert) }
                 log.notice("activity announced saved capture (\(state.formattedDuration ?? "?"))")
-                try? await Task.sleep(for: .seconds(Self.announceSeconds))
+                await hold?.value
             }
             for activity in current {
                 await Self.end(activity, with: content, dismissal: dismissal, log: log)
@@ -98,10 +118,9 @@ final class CaptureActivityController {
 
     /// The banner on iPhones without a Dynamic Island; on those with one, the island shows the expanded view.
     private static func announcement(for state: CaptureActivityState) -> AlertConfiguration {
-        let length = state.formattedDuration ?? ""
-        return AlertConfiguration(title: "Poem captured",
-                                  body: "\(length) saved. Open Anamnesis to add it to your Library.",
-                                  sound: .default)
+        AlertConfiguration(title: "Ready to transcribe",
+                           body: "Open Anamnesis to transcribe it into your Library.",
+                           sound: .default)
     }
 
     // MARK: - ActivityKit calls
