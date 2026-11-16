@@ -20,9 +20,11 @@ struct AnamnesisApp: App {
                 .onChange(of: scenePhase, initial: true) { _, phase in
                     guard phase == .active else { return }
                     environment.drainLaunchMailbox()
+                    environment.capture.sceneBecameActive()
+                    environment.capture.activity.dismissFinished()
                     environment.reloadControl()
                     Task { await environment.refreshSessions() }
-                    Task { await environment.controlCenter.refresh() }
+                    environment.controlCenter.refreshAfterReturning()
                 }
                 .onOpenURL { environment.open($0) }
                 .modelContainer(environment.library.container)
