@@ -82,11 +82,15 @@ public actor LibraryImporter {
                 modelContext.insert(session)
                 inserted += 1
             }
+            // SwiftData counts a write of the same value as a change, so only what differs is written: a refresh
+            // with nothing new then saves nothing and wakes no `@Query`.
             // A manifest without segments reads 0 s; keep a duration the transcript already gave.
-            if snapshot.durationSec > 0 { session.durationSec = snapshot.durationSec }
-            session.stoppedAt = snapshot.stoppedAt ?? session.stoppedAt
-            session.stopReason = snapshot.stopReason ?? session.stopReason
-            session.audioDeleted = !snapshot.hasAudio
+            if snapshot.durationSec > 0, session.durationSec != snapshot.durationSec {
+                session.durationSec = snapshot.durationSec
+            }
+            if let stoppedAt = snapshot.stoppedAt, session.stoppedAt != stoppedAt { session.stoppedAt = stoppedAt }
+            if let reason = snapshot.stopReason, session.stopReason != reason { session.stopReason = reason }
+            if session.audioDeleted == snapshot.hasAudio { session.audioDeleted = !snapshot.hasAudio }
         }
         if modelContext.hasChanges { try modelContext.save() }
         return inserted
