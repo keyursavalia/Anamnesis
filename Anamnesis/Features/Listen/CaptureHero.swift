@@ -1,6 +1,6 @@
 import SwiftUI
 
-/// The one big control on the Listen screen (spec 015 R2): a warm orb that breathes while idle and sends out rings
+/// The one big control on the Transcribe screen (spec 015 R2): a warm orb that breathes while idle and sends out rings
 /// while listening, a line on what happens next, and a three-step track that lights the step the user is on.
 struct CaptureHero: View {
     @Environment(AppEnvironment.self) private var environment
@@ -59,9 +59,20 @@ struct CaptureHero: View {
         VStack(spacing: 8) {
             switch phase {
             case .idle:
-                Text("Hear a poem?").font(Theme.display(.title))
+                // Only the last word rolls (spec 020 R2): poem → speech → story → plan.
+                HStack(alignment: .firstTextBaseline, spacing: 0) {
+                    Text("Hear a")
+                    RollingWord(words: RollingWords.singular).foregroundStyle(Theme.ember)
+                    Text("?")
+                }
+                .font(Theme.display(.title))
+                // Full width, so the caption's width never follows the word and the line below never shifts.
+                .frame(maxWidth: .infinity)
+                .accessibilityElement(children: .ignore)
+                .accessibilityLabel("Hear a poem, a speech, a story or a plan?")
+                .accessibilityAddTraits(.isHeader)
                 Text(isAvailable
-                     ? "Tap to transcribe. Choose **Share Entire Screen**, then go back to your reel."
+                     ? "Tap to transcribe. Choose **Share Entire Screen**, then go back to your media."
                      : "Transcribing needs an iPhone or iPad with screen sharing.")
                     .font(.callout).foregroundStyle(Theme.inkSecondary)
             case .choosing:
@@ -73,7 +84,7 @@ struct CaptureHero: View {
                     .font(.system(.largeTitle, design: .serif, weight: .semibold).monospacedDigit())
                     .contentTransition(.numericText())
                     .accessibilityLabel("Listening")
-                Text("Listening. Play your reel, then come back and tap to transcribe.")
+                Text("Listening. Play your media, then come back and tap to transcribe.")
                     .font(.callout).foregroundStyle(Theme.inkSecondary)
             }
         }
@@ -100,8 +111,9 @@ private struct StepTrack: View {
 
     private static let steps: [(symbol: String, title: String)] = [
         ("hand.tap.fill", "Tap the orb"),
-        ("play.fill", "Play your reel"),
-        ("text.quote", "Tap to transcribe")
+        ("play.fill", "Play your media"),
+        // The orb's own symbol, as on the control (spec 020 R4).
+        ("waveform", "Tap to transcribe")
     ]
 
     static func step(for phase: CaptureController.Phase) -> Int {
