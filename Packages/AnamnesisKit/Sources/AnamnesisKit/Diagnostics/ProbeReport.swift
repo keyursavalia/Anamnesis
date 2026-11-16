@@ -6,7 +6,6 @@ public struct ProbeReport: Sendable, Equatable, Codable {
 
     public enum Backend: String, Sendable, Codable {
         case screenCaptureKit
-        case replayKit
     }
 
     /// Buffer types of both backends: SCK (`screen`/`audio`/`microphone`), ReplayKit (`video`/`audioApp`/`audioMic`).
@@ -91,7 +90,6 @@ public struct ProbeReport: Sendable, Equatable, Codable {
         public var rmsHistogram = [Int](repeating: 0, count: LevelMath.histogramBinCount)
         public var ptsGaps = PTSGaps()
         public var formatChanges = 0
-        public var dropsQueueFull = 0
         public var errors: [ErrorRecord] = []
     }
 
@@ -171,16 +169,17 @@ public struct ProbeReport: Sendable, Equatable, Codable {
         try decoder.decode(ProbeReport.self, from: data)
     }
 
-    private static var encoder: JSONEncoder {
+    /// Built once: DEBUG writes a report snapshot every 5 s during a capture.
+    private static let encoder: JSONEncoder = {
         let encoder = JSONEncoder()
         encoder.outputFormatting = [.prettyPrinted, .sortedKeys]
         encoder.dateEncodingStrategy = .iso8601
         return encoder
-    }
+    }()
 
-    private static var decoder: JSONDecoder {
+    private static let decoder: JSONDecoder = {
         let decoder = JSONDecoder()
         decoder.dateDecodingStrategy = .iso8601
         return decoder
-    }
+    }()
 }
