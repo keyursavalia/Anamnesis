@@ -24,7 +24,10 @@ enum Theme {
     static let unsure = Color(light: 0xA86A00, dark: 0xE8B04B)
     /// Saved, done, in the library.
     static let sage = Color(light: 0x4F7A5A, dark: 0x8CC09A)
+    /// Danger for text and symbols (light enough to read on the night page).
     static let danger = Color(light: 0xB3261E, dark: 0xFF8A80)
+    /// Danger behind white text: a true red in both modes, deep enough for 4.5:1 contrast.
+    static let dangerFill = Color(light: 0xB3261E, dark: 0xC62828)
 
     // MARK: - Type
 
