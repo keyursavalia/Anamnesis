@@ -8,7 +8,10 @@ nonisolated struct SpoolSessionSummary: Sendable, Identifiable {
     let session: SpoolSession
     /// nil if the manifest is missing or unreadable (recovery will rebuild it unless the session is active).
     let manifest: SpoolManifest?
+    #if DEBUG
+    /// Only the Lab shows it; sizing every folder on every refresh is not worth it in Release (review follow-up 3).
     let sizeBytes: Int
+    #endif
     let isDone: Bool
     /// Segments still on disk; false once D-010 has deleted them after a transcription (spec 008 R7).
     let hasAudio: Bool
@@ -82,9 +85,15 @@ final class SessionIngestor {
     }
 
     private nonisolated static func summary(_ session: SpoolSession) -> SpoolSessionSummary {
-        SpoolSessionSummary(
-            session: session, manifest: try? SpoolManifest.read(from: session.manifestURL),
-            sizeBytes: session.sizeOnDisk(), isDone: session.isDone, hasAudio: session.hasAudio,
+        let manifest = try? SpoolManifest.read(from: session.manifestURL)
+        #if DEBUG
+        return SpoolSessionSummary(
+            session: session, manifest: manifest, sizeBytes: session.sizeOnDisk(), isDone: session.isDone,
+            hasAudio: session.hasAudio, hasTranscript: session.hasTranscript)
+        #else
+        return SpoolSessionSummary(
+            session: session, manifest: manifest, isDone: session.isDone, hasAudio: session.hasAudio,
             hasTranscript: session.hasTranscript)
+        #endif
     }
 }
