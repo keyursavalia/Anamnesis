@@ -2,9 +2,10 @@ import AnamnesisKit
 import SwiftData
 import SwiftUI
 
-/// The home screen (spec 015 R2, reworked): the orb with its step track, the Control Center invite, recordings still
-/// on their way (or failed, with their fix), and one row into the Library that says what the last one brought.
-/// Finished recordings are not listed: since spec 016 R1 their poems are already in the Library.
+/// The home screen, the **Transcribe** tab (spec 015 R2; spec 019 R5; spec 020): the orb with its step track, the
+/// speech model's progress while a new user's download runs, the tips, recordings still on their way (or failed,
+/// with their fix), and one quiet card into the Library. Finished recordings are not listed: their transcripts are
+/// already in the Library. The type keeps its old name; the tab was *Listen* until spec 020.
 struct ListenView: View {
     /// Switches to the Library tab.
     var showLibrary: () -> Void = {}
@@ -17,12 +18,13 @@ struct ListenView: View {
     #endif
     /// Newest first (spec 009: the store is the list's source).
     @Query(sort: \CaptureSession.startedAt, order: .reverse) private var stored: [CaptureSession]
-    @Query private var poems: [Poem]
+    @Query private var transcripts: [Poem]
 
     var body: some View {
         NavigationStack {
             List {
                 CaptureHero().cardRow()
+                SpeechModelBanner().cardRow()
                 errors
                 ControlSetupCard().cardRow()
                 inProgress
@@ -32,7 +34,7 @@ struct ListenView: View {
             // The setup card's row is often empty; without this it would keep a 44-pt gap.
             .environment(\.defaultMinListRowHeight, 0)
             .paperBackground()
-            .navigationTitle("Listen")
+            .navigationTitle("Transcribe")
             .navigationBarTitleDisplayMode(.inline)
             .refreshable { await environment.refreshSessions() }
             .animation(.smooth, value: stored.map(\.spoolSessionID))
@@ -40,7 +42,7 @@ struct ListenView: View {
                 get: { pendingDelete != nil }, set: { if !$0 { pendingDelete = nil } }), titleVisibility: .visible) {
                 Button("Delete recording", role: .destructive) { deletePending() }
             } message: {
-                Text("The recording is removed. Any poems from it stay in your library.")
+                Text("The recording is removed. Any transcripts from it stay in your library.")
             }
             #if DEBUG
             .sheet(item: $metricsSession) { session in
@@ -92,17 +94,15 @@ struct ListenView: View {
         }
     }
 
-    /// One way into the Library, once there is something to find there.
+    /// One way into the Library, once there is something in it.
     @ViewBuilder
     private var libraryRow: some View {
-        if !poems.isEmpty || stored.contains(where: { $0.state == .transcribed }) {
-            Button(action: showLibrary) {
-                LibrarySummaryCard(poemCount: poems.count, latest: stored.first { $0.state == .transcribed })
-            }
-            .buttonStyle(CardButtonStyle())
-            .accessibilityHint("Opens your Library")
-            .padding(.top, 14)
-            .cardRow()
+        if !transcripts.isEmpty {
+            Button(action: showLibrary) { LibraryCard(count: transcripts.count) }
+                .buttonStyle(CardButtonStyle())
+                .accessibilityHint("Opens your Library")
+                .padding(.top, 14)
+                .cardRow()
         }
     }
 
@@ -160,43 +160,82 @@ struct ListenView: View {
     }
 }
 
-/// The Library's count, and what the most recent finished recording brought: the answer to "did it work?".
-private struct LibrarySummaryCard: View {
-    let poemCount: Int
-    let latest: CaptureSession?
+/// The Library, minimal (spec 020 R5): the count set large in New York, one quiet line under it, an arrow. Nothing
+/// about the last recording; the Library itself tells that story.
+private struct LibraryCard: View {
+    let count: Int
 
     var body: some View {
-        HStack(spacing: 14) {
-            Image(systemName: "books.vertical.fill")
-                .font(.title3.weight(.semibold))
-                .foregroundStyle(Theme.sage)
-                .frame(width: 44, height: 44)
-                .background(Theme.sage.opacity(0.14), in: .rect(cornerRadius: 12, style: .continuous))
-            VStack(alignment: .leading, spacing: 3) {
-                Text(poemCount == 1 ? "1 poem in your Library" : "\(poemCount) poems in your Library")
-                    .font(.headline)
+        HStack(alignment: .center, spacing: 16) {
+            VStack(alignment: .leading, spacing: 2) {
+                Text(count, format: .number)
+                    .font(.system(size: 44, weight: .semibold, design: .serif))
                     .foregroundStyle(Theme.ink)
-                if let outcome {
-                    Text(outcome).font(.footnote).foregroundStyle(Theme.inkSecondary).lineLimit(2)
-                }
+                    .contentTransition(.numericText(value: Double(count)))
+                    .animation(.smooth, value: count)
+                Text(count == 1 ? "transcript in your Library" : "transcripts in your Library")
+                    .font(Theme.verse(.callout))
+                    .italic()
+                    .foregroundStyle(Theme.inkSecondary)
             }
             Spacer(minLength: 8)
-            Image(systemName: "chevron.right")
-                .font(.footnote.weight(.semibold))
-                .foregroundStyle(Theme.inkSecondary.opacity(0.6))
+            Image(systemName: "arrow.up.right")
+                .font(.body.weight(.semibold))
+                .foregroundStyle(Theme.ember)
+                .frame(width: 44, height: 44)
+                .background(Theme.ember.opacity(0.12), in: .circle)
         }
-        .card(padding: 16)
+        .padding(.horizontal, 22)
+        .padding(.vertical, 18)
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .background(Theme.surface, in: .rect(cornerRadius: Theme.cornerRadius, style: .continuous))
+        .overlay {
+            RoundedRectangle(cornerRadius: Theme.cornerRadius, style: .continuous)
+                .strokeBorder(Theme.hairline, lineWidth: 0.5)
+        }
         .contentShape(.rect(cornerRadius: Theme.cornerRadius))
+        .accessibilityElement(children: .combine)
     }
+}
 
-    private var outcome: String? {
-        guard let latest else { return nil }
-        let when = CaptureFormat.when(latest.startedAt)
-        let kept = latest.keptPoemCount
-        if latest.moments.isEmpty { return String(localized: "No speech in your last recording · \(when)") }
-        if kept == 0 { return String(localized: "Your last recording had no poems · \(when)") }
-        return kept == 1 ? String(localized: "1 new from your last recording · \(when)")
-                         : String(localized: "\(kept) new from your last recording · \(when)")
+/// Spec 020 R7: while a new user's speech model downloads (or is waiting for a connection), one line says so, with
+/// progress. Recordings made meanwhile wait and transcribe themselves once it lands. Hidden once installed.
+private struct SpeechModelBanner: View {
+    @Environment(AppEnvironment.self) private var environment
+
+    var body: some View {
+        if let queue = environment.transcripts, queue.isWaitingForModel {
+            let state = queue.assets.state
+            HStack(alignment: .center, spacing: 14) {
+                Image(systemName: state.isFailed ? "wifi.exclamationmark" : "arrow.down.circle")
+                    .font(.title3.weight(.semibold))
+                    .foregroundStyle(Theme.ember)
+                    .symbolEffect(.pulse, options: .repeating, isActive: !state.isFailed)
+                    .frame(width: 40, height: 40)
+                    .background(Theme.ember.opacity(0.12), in: .rect(cornerRadius: 12))
+                VStack(alignment: .leading, spacing: 6) {
+                    Text(state.isFailed ? "Speech recognition is waiting for internet"
+                                         : "Getting speech recognition ready")
+                        .font(.subheadline.weight(.semibold))
+                        .foregroundStyle(Theme.ink)
+                    if case .installing(let fraction) = state {
+                        ProgressView(value: fraction).tint(Theme.ember)
+                    } else {
+                        Text(state.isFailed
+                             ? "A one-time download from Apple. It continues on its own once you’re online."
+                             : "A one-time download from Apple. You can record now; it transcribes when ready.")
+                            .font(.caption)
+                            .foregroundStyle(Theme.inkSecondary)
+                    }
+                }
+                if state.isFailed {
+                    Button("Retry") { Task { await queue.prepareModel() } }
+                        .buttonStyle(QuietButtonStyle())
+                }
+            }
+            .card(padding: 14)
+            .accessibilityElement(children: .combine)
+        }
     }
 }
 
