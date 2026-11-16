@@ -1,7 +1,7 @@
 import SwiftUI
 
-/// The one big control on the Listen screen (spec 015 R2): a warm orb that breathes while idle, sends out rings
-/// while listening, and says in one line what happens next.
+/// The one big control on the Listen screen (spec 015 R2): a warm orb that breathes while idle and sends out rings
+/// while listening, a line on what happens next, and a three-step track that lights the step the user is on.
 struct CaptureHero: View {
     @Environment(AppEnvironment.self) private var environment
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
@@ -9,7 +9,7 @@ struct CaptureHero: View {
     var body: some View {
         let capture = environment.capture
         let phase = capture.phase
-        VStack(spacing: 10) {
+        VStack(spacing: 18) {
             Button {
                 toggle()
             } label: {
@@ -17,9 +17,11 @@ struct CaptureHero: View {
             }
             .buttonStyle(OrbButtonStyle())
             .disabled(!capture.isPickerAvailable && !capture.isCapturing)
-            .accessibilityLabel(capture.isCapturing ? "Stop listening" : "Start listening")
-            .accessibilityHint(capture.isCapturing ? "Saves the capture and transcribes it"
-                                                   : "Opens the system sheet to share the sound of other apps")
+            .accessibilityLabel(capture.isCapturing ? "Stop and transcribe"
+                                : phase == .choosing ? "Start over" : "Transcribe")
+            .accessibilityHint(capture.isCapturing ? "Stops listening and transcribes what was heard"
+                               : phase == .choosing ? "Resets if the screen-sharing sheet has closed"
+                               : "Opens the system sheet to share the sound of other apps")
             .sensoryFeedback(trigger: phase) { old, new in
                 switch (old, new) {
                 case (_, .capturing): .start
@@ -30,11 +32,25 @@ struct CaptureHero: View {
 
             caption(phase, isAvailable: capture.isPickerAvailable)
                 .multilineTextAlignment(.center)
-                .frame(maxWidth: 320)
+                .frame(maxWidth: 340)
                 .animation(.smooth, value: phase)
+
+            if capture.isPickerAvailable {
+                StepTrack(current: StepTrack.step(for: phase))
+                    .animation(.smooth, value: phase)
+                // Icon and text hug each other as one centred unit (a `Label` spreads them apart when it wraps).
+                HStack(alignment: .firstTextBaseline, spacing: 5) {
+                    Image(systemName: "lock.fill").imageScale(.small)
+                    Text("Only the sound other apps play, transcribed on this device")
+                }
+                .font(.caption)
+                .foregroundStyle(Theme.inkSecondary)
+                .multilineTextAlignment(.center)
+                .fixedSize(horizontal: false, vertical: true)
+                .accessibilityElement(children: .combine)
+            }
         }
         .frame(maxWidth: .infinity)
-        .padding(.top, 12)
         .padding(.bottom, 8)
     }
 
@@ -45,32 +61,107 @@ struct CaptureHero: View {
             case .idle:
                 Text("Hear a poem?").font(Theme.display(.title))
                 Text(isAvailable
-                     ? "Tap, choose **Share Entire Screen**, then go back to your reel."
-                     : "Capturing needs an iPhone or iPad with screen sharing.")
+                     ? "Tap to transcribe. Choose **Share Entire Screen**, then go back to your reel."
+                     : "Transcribing needs an iPhone or iPad with screen sharing.")
                     .font(.callout).foregroundStyle(Theme.inkSecondary)
             case .choosing:
                 Text("Almost there").font(Theme.display(.title))
-                Text("Choose **Share Entire Screen**, then tap **Start**.")
+                Text("Choose **Share Entire Screen**, then tap **Start**. Closed it? Tap the orb to start over.")
                     .font(.callout).foregroundStyle(Theme.inkSecondary)
             case .capturing(let since):
                 Text(since, style: .timer)
                     .font(.system(.largeTitle, design: .serif, weight: .semibold).monospacedDigit())
                     .contentTransition(.numericText())
                     .accessibilityLabel("Listening")
-                Text("Listening. Play your reel; come back and tap to stop. Poems go straight to your Library.")
+                Text("Listening. Play your reel, then come back and tap to transcribe.")
                     .font(.callout).foregroundStyle(Theme.inkSecondary)
             }
         }
         .transition(.opacity.combined(with: .scale(scale: 0.98)))
     }
 
+    /// While `choosing`, the orb is only reachable once the picker is gone, so a tap then starts over.
     private func toggle() {
         let capture = environment.capture
         if capture.isCapturing {
             Task { await capture.stop() }
+        } else if capture.phase == .choosing {
+            capture.cancelPendingStart()
         } else {
             try? capture.start(label: "listen")
         }
+    }
+}
+
+/// Tap → Play → Transcribe as three dots on a line: done steps in sage, the current one filled ember, the rest
+/// waiting. Tells a first-timer the whole flow and a returning one where they are.
+private struct StepTrack: View {
+    let current: Int
+
+    private static let steps: [(symbol: String, title: String)] = [
+        ("hand.tap.fill", "Tap the orb"),
+        ("play.fill", "Play your reel"),
+        ("text.quote", "Tap to transcribe")
+    ]
+
+    static func step(for phase: CaptureController.Phase) -> Int {
+        if case .capturing = phase { 1 } else { 0 }
+    }
+
+    var body: some View {
+        HStack(alignment: .top, spacing: 0) {
+            ForEach(Self.steps.indices, id: \.self) { index in
+                let step = Self.steps[index]
+                VStack(spacing: 8) {
+                    dot(index, symbol: step.symbol)
+                    Text(step.title)
+                        .font(.caption.weight(index == current ? .semibold : .regular))
+                        .foregroundStyle(index == current ? Theme.ink : Theme.inkSecondary)
+                        .multilineTextAlignment(.center)
+                        .fixedSize(horizontal: false, vertical: true)
+                }
+                .frame(maxWidth: .infinity)
+                .accessibilityElement(children: .combine)
+                .accessibilityLabel("Step \(index + 1) of 3: \(step.title)")
+                .accessibilityAddTraits(index == current ? .isSelected : [])
+            }
+        }
+        .background(alignment: .top) { connectors }
+        .padding(.vertical, 16)
+        .padding(.horizontal, 8)
+        .background(Theme.surface, in: .rect(cornerRadius: Theme.cornerRadius, style: .continuous))
+        .overlay {
+            RoundedRectangle(cornerRadius: Theme.cornerRadius, style: .continuous)
+                .strokeBorder(Theme.hairline, lineWidth: 0.5)
+        }
+        .frame(maxWidth: 420)
+    }
+
+    private func dot(_ index: Int, symbol: String) -> some View {
+        let done = index < current
+        let isCurrent = index == current
+        return Image(systemName: done ? "checkmark" : symbol)
+            .font(.subheadline.weight(.semibold))
+            .foregroundStyle(done || isCurrent ? Color.white : Theme.inkSecondary)
+            .contentTransition(.symbolEffect(.replace))
+            .frame(width: 36, height: 36)
+            .background(done ? Theme.sage : isCurrent ? Theme.emberFill : Theme.sunken, in: .circle)
+    }
+
+    /// The lines between dots. Columns are equal, so dot centres sit at 1/6, 3/6 and 5/6 of the width and each line
+    /// is centred on a column boundary, stopping short of the dots on either side.
+    private var connectors: some View {
+        GeometryReader { proxy in
+            let column = proxy.size.width / CGFloat(Self.steps.count)
+            ForEach(1..<Self.steps.count, id: \.self) { index in
+                Capsule()
+                    .fill(index <= current ? Theme.sage : Theme.hairline)
+                    .frame(width: max(0, column - 48), height: 2)
+                    .position(x: column * CGFloat(index), y: 18)
+            }
+        }
+        .frame(height: 36)
+        .accessibilityHidden(true)
     }
 }
 
