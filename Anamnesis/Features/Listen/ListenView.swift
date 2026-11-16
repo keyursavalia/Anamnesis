@@ -2,9 +2,9 @@ import AnamnesisKit
 import SwiftData
 import SwiftUI
 
-/// The home screen (spec 015 R2): the capture orb, then captures still on their way, then recent ones. Since
-/// spec 016 R1 a capture's poems go straight to the library, so a finished capture links there instead of to a
-/// review screen.
+/// The home screen (spec 015 R2, reworked): the orb with its step track, the Control Center invite, recordings still
+/// on their way (or failed, with their fix), and one row into the Library that says what the last one brought.
+/// Finished recordings are not listed: since spec 016 R1 their poems are already in the Library.
 struct ListenView: View {
     /// Switches to the Library tab.
     var showLibrary: () -> Void = {}
@@ -17,6 +17,7 @@ struct ListenView: View {
     #endif
     /// Newest first (spec 009: the store is the list's source).
     @Query(sort: \CaptureSession.startedAt, order: .reverse) private var stored: [CaptureSession]
+    @Query private var poems: [Poem]
 
     var body: some View {
         NavigationStack {
@@ -24,7 +25,8 @@ struct ListenView: View {
                 CaptureHero().cardRow()
                 errors
                 ControlSetupCard().cardRow()
-                sessions
+                inProgress
+                libraryRow
             }
             .listStyle(.plain)
             // The setup card's row is often empty; without this it would keep a 44-pt gap.
@@ -34,11 +36,11 @@ struct ListenView: View {
             .navigationBarTitleDisplayMode(.inline)
             .refreshable { await environment.refreshSessions() }
             .animation(.smooth, value: stored.map(\.spoolSessionID))
-            .confirmationDialog("Delete this capture?", isPresented: Binding(
+            .confirmationDialog("Delete this recording?", isPresented: Binding(
                 get: { pendingDelete != nil }, set: { if !$0 { pendingDelete = nil } }), titleVisibility: .visible) {
-                Button("Delete capture", role: .destructive) { deletePending() }
+                Button("Delete recording", role: .destructive) { deletePending() }
             } message: {
-                Text("The capture is removed. Its poems stay in your library.")
+                Text("The recording is removed. Any poems from it stay in your library.")
             }
             #if DEBUG
             .sheet(item: $metricsSession) { session in
@@ -50,7 +52,7 @@ struct ListenView: View {
                                            })
                         .padding()
                     } else {
-                        Text("No metrics for this capture.").padding()
+                        Text("No metrics for this recording.").padding()
                     }
                 }
                 .paperBackground()
@@ -75,26 +77,32 @@ struct ListenView: View {
                 id: \.self) { ErrorLine($0).cardRow() }
     }
 
-    /// One pass: each session's status is computed once, from one manifest lookup, and split into the two groups.
+    /// Recordings still on their way, or failed. Each status is computed once, from one manifest lookup.
     @ViewBuilder
-    private var sessions: some View {
+    private var inProgress: some View {
         let manifests = CaptureSessionStatus.manifests(in: environment)
-        let rows = stored.map { session in
-            (session: session, status: CaptureSessionStatus(session: session, environment: environment,
-                                                             manifest: manifests[session.spoolSessionID]))
+        let rows = stored.compactMap { session -> (session: CaptureSession, status: CaptureSessionStatus)? in
+            let status = CaptureSessionStatus(session: session, environment: environment,
+                                              manifest: manifests[session.spoolSessionID])
+            return status.needsAttention(session) ? (session, status) : nil
         }
-        let attention = rows.filter { $0.status.needsAttention($0.session) }
-        let earlier = rows.filter { !$0.status.needsAttention($0.session) }
-        if stored.isEmpty {
-            EmptyCapturesCard().cardRow()
-        }
-        if !attention.isEmpty {
+        if !rows.isEmpty {
             Eyebrow("In progress").padding(.top, 14).cardRow()
-            ForEach(attention, id: \.session.id) { row($0.session, status: $0.status) }
+            ForEach(rows, id: \.session.id) { row($0.session, status: $0.status) }
         }
-        if !earlier.isEmpty {
-            Eyebrow("Recent").padding(.top, 14).cardRow()
-            ForEach(earlier, id: \.session.id) { row($0.session, status: $0.status) }
+    }
+
+    /// One way into the Library, once there is something to find there.
+    @ViewBuilder
+    private var libraryRow: some View {
+        if !poems.isEmpty || stored.contains(where: { $0.state == .transcribed }) {
+            Button(action: showLibrary) {
+                LibrarySummaryCard(poemCount: poems.count, latest: stored.first { $0.state == .transcribed })
+            }
+            .buttonStyle(CardButtonStyle())
+            .accessibilityHint("Opens your Library")
+            .padding(.top, 14)
+            .cardRow()
         }
     }
 
@@ -117,7 +125,7 @@ struct ListenView: View {
             #if DEBUG
             Button("Metrics (DEBUG)", systemImage: "chart.bar") { metricsSession = session }
             #endif
-            Button("Delete capture", systemImage: "trash", role: .destructive) { pendingDelete = session }
+            Button("Delete recording", systemImage: "trash", role: .destructive) { pendingDelete = session }
         }
     }
 
@@ -136,7 +144,7 @@ struct ListenView: View {
         }
     }
 
-    /// A session link (Live Activity) lands here, where the capture's card shows its progress.
+    /// A session link (Live Activity) lands here, where the recording's card shows its progress.
     private func openRequestedSession() {
         guard environment.openSessionID != nil else { return }
         environment.openSessionID = nil
@@ -152,33 +160,43 @@ struct ListenView: View {
     }
 }
 
-/// First run, nothing captured yet: the three steps, once more, where the list will be.
-private struct EmptyCapturesCard: View {
+/// The Library's count, and what the most recent finished recording brought: the answer to "did it work?".
+private struct LibrarySummaryCard: View {
+    let poemCount: Int
+    let latest: CaptureSession?
+
     var body: some View {
-        VStack(alignment: .leading, spacing: 14) {
-            Eyebrow("How it works")
-            StepRow(number: 1, text: "Tap the orb and choose **Share Entire Screen**.")
-            StepRow(number: 2, text: "Open TikTok or Instagram and play the poem.")
-            StepRow(number: 3, text: "Come back and stop. Each poem you heard lands in your **Library**.")
+        HStack(spacing: 14) {
+            Image(systemName: "books.vertical.fill")
+                .font(.title3.weight(.semibold))
+                .foregroundStyle(Theme.sage)
+                .frame(width: 44, height: 44)
+                .background(Theme.sage.opacity(0.14), in: .rect(cornerRadius: 12, style: .continuous))
+            VStack(alignment: .leading, spacing: 3) {
+                Text(poemCount == 1 ? "1 poem in your Library" : "\(poemCount) poems in your Library")
+                    .font(.headline)
+                    .foregroundStyle(Theme.ink)
+                if let outcome {
+                    Text(outcome).font(.footnote).foregroundStyle(Theme.inkSecondary).lineLimit(2)
+                }
+            }
+            Spacer(minLength: 8)
+            Image(systemName: "chevron.right")
+                .font(.footnote.weight(.semibold))
+                .foregroundStyle(Theme.inkSecondary.opacity(0.6))
         }
-        .card()
-        .padding(.top, 8)
+        .card(padding: 16)
+        .contentShape(.rect(cornerRadius: Theme.cornerRadius))
     }
-}
 
-struct StepRow: View {
-    let number: Int
-    let text: LocalizedStringKey
-
-    var body: some View {
-        HStack(alignment: .firstTextBaseline, spacing: 12) {
-            Text("\(number)")
-                .font(.system(.subheadline, design: .serif, weight: .bold))
-                .foregroundStyle(Theme.ember)
-                .frame(width: 26, height: 26)
-                .background(Theme.ember.opacity(0.12), in: .circle)
-            Text(text).font(.subheadline).foregroundStyle(Theme.ink)
-        }
+    private var outcome: String? {
+        guard let latest else { return nil }
+        let when = CaptureFormat.when(latest.startedAt)
+        let kept = latest.keptPoemCount
+        if latest.moments.isEmpty { return String(localized: "No speech in your last recording · \(when)") }
+        if kept == 0 { return String(localized: "Your last recording had no poems · \(when)") }
+        return kept == 1 ? String(localized: "1 new from your last recording · \(when)")
+                         : String(localized: "\(kept) new from your last recording · \(when)")
     }
 }
 
