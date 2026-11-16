@@ -9,18 +9,18 @@ import os
 // `perform` in the app (F-027). A returned `OpenURLIntent` with our own scheme is not delivered to the app (F-028),
 // so `perform` posts to an in-process mailbox that `AppEnvironment` drains.
 
-/// The *Capture poem* toggle. On: presents the picker over the current app without bringing Anamnesis forward,
+/// The *Transcribe* toggle. On: presents the picker over the current app without bringing Anamnesis forward,
 /// cold, windowless or suspended (rung 3, F-036). Off: stops the capture. The app acts on the real capture state, so a
 /// tap on a switch left stale by a stop from the recording indicator still does what the user means (F-037).
 /// A `LiveActivityIntent` too, so `perform` may start the capture Live Activity without the app in front (spec 007).
 struct CaptureToggleIntent: SetValueIntent, LiveActivityIntent {
-    static let title: LocalizedStringResource = "Capture poem"
+    static let title: LocalizedStringResource = "Transcribe"
     static let isDiscoverable = false
     static let supportedModes: IntentModes = .background
     /// iOS 27: run in the app process (where the picker observer lives), never in the widget extension.
     static let allowedExecutionTargets: IntentExecutionTargets = .main
 
-    @Parameter(title: "Capturing")
+    @Parameter(title: "Listening")
     var value: Bool
 
     func perform() async throws -> some IntentResult {
@@ -33,7 +33,7 @@ struct CaptureToggleIntent: SetValueIntent, LiveActivityIntent {
 /// The Live Activity's Stop button (spec 007 R4). Runs in the app like the toggle, so the control reload that
 /// follows the stop is honoured and the switch turns off at once (F-037).
 struct StopCaptureIntent: LiveActivityIntent {
-    static let title: LocalizedStringResource = "Stop capture"
+    static let title: LocalizedStringResource = "Stop Listening"
     static let isDiscoverable = false
     static let supportedModes: IntentModes = .background
     static let allowedExecutionTargets: IntentExecutionTargets = .main
@@ -75,8 +75,8 @@ private enum CaptureActivityStart {
 
 /// Rungs 1–2: brings the app forward on the capture screen. Discoverable so Shortcuts / Back Tap can run it.
 struct OpenCaptureIntent: AppIntent {
-    static let title: LocalizedStringResource = "Open capture"
-    static let description = IntentDescription("Opens Anamnesis on the capture screen.")
+    static let title: LocalizedStringResource = "Open Transcribe"
+    static let description = IntentDescription("Opens Anamnesis on the Listen screen, ready to transcribe.")
     static let supportedModes: IntentModes = .foreground(.immediate)
 
     @Parameter(title: "Present picker", default: false)
