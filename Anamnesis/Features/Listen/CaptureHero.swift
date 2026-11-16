@@ -88,7 +88,6 @@ struct CaptureHero: View {
                     .font(.callout).foregroundStyle(Theme.inkSecondary)
             }
         }
-        .transition(.opacity.combined(with: .scale(scale: 0.98)))
     }
 
     /// While `choosing`, the orb is only reachable once the picker is gone, so a tap then starts over.
@@ -241,18 +240,24 @@ private struct Ring: View {
     @State private var started = false
 
     var body: some View {
-        Circle()
-            .stroke(Theme.ember, lineWidth: 1.5)
+        // The ring is inserted only after its delay: a phase animator starts cycling when it appears, so one that
+        // merely stayed hidden until then would run in step with the others and the three would draw as one.
+        Color.clear
             .frame(width: size, height: size)
-            .opacity(started ? 1 : 0)
-            .phaseAnimator([0.0, 1.0]) { content, progress in
-                let scale: CGFloat = 1 + progress * 0.45
-                let opacity: Double = (1 - progress) * 0.55
-                content.scaleEffect(scale).opacity(opacity)
-            } animation: { progress in
-                // Grow over the period, then snap back unseen (opacity is 0 at the end).
-                let duration: Double = progress == 1 ? Self.period : 0
-                return .linear(duration: duration)
+            .overlay {
+                if started {
+                    Circle()
+                        .stroke(Theme.ember, lineWidth: 1.5)
+                        .phaseAnimator([0.0, 1.0]) { content, progress in
+                            let scale: CGFloat = 1 + progress * 0.45
+                            let opacity: Double = (1 - progress) * 0.55
+                            content.scaleEffect(scale).opacity(opacity)
+                        } animation: { progress in
+                            // Grow over the period, then snap back unseen (opacity is 0 at the end).
+                            let duration: Double = progress == 1 ? Self.period : 0
+                            return .linear(duration: duration)
+                        }
+                }
             }
             .task {
                 try? await Task.sleep(for: .seconds(delay))
