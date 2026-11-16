@@ -147,7 +147,9 @@ final class CaptureController {
         updatePhase(with: event)
         switch event {
         case .started: recordStart()
-        case .stopped(let run): recordStop(reason: run.report.stop?.reason.rawValue ?? "unknown")
+        case .stopped(let run):
+            recordStop(reason: run.report.stop?.reason.rawValue ?? "unknown",
+                       sessionKept: run.spoolManifest?.isFinishedEmpty != true)
         case .pickerFailed(let message): lastError = "Picker failed: \(message)"
         case .startFailed(let message): lastError = "Start failed: \(message)"
         case .pickerPresented, .pickerCancelled, .filterReceived: break
@@ -210,9 +212,11 @@ final class CaptureController {
         #endif
     }
 
-    private func recordStop(reason: String) {
+    private func recordStop(reason: String, sessionKept: Bool) {
         guard let session = current?.session, var record = current?.record else { return }
         current = nil
+        // An empty session was discarded at stop (`SCKCaptureBackend.discardIfEmpty`): no folder to write into.
+        guard sessionKept else { return }
         let power = Self.powerSnapshot()
         record.markStopped(at: power.takenAt, reason: reason, power: power)
         // Stopped with the app in front: the user can expect the transcript now, not at the next foreground.
