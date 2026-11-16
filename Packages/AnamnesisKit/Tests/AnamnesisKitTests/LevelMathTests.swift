@@ -49,7 +49,7 @@ struct LevelMathTests {
         let amplitude = Float(pow(10, -6.0 / 20))
         let sine = Self.sine(amplitude: amplitude)
         for level in [Self.measure(sine), Self.measure(Self.toInt16(sine))] {
-            #expect(abs(level.peakDBFS - -6) < 0.05)
+            #expect(abs(LevelMath.dbfs(level.peak) - -6) < 0.05)
             // RMS of a sine is peak / sqrt(2), i.e. 3.01 dB lower.
             #expect(abs(level.rmsDBFS - -9.01) < 0.05)
             #expect(!level.isSilent())
@@ -59,7 +59,7 @@ struct LevelMathTests {
     @Test("-60 dBFS noise is quiet but not digital silence")
     func quietNoise() {
         let level = Self.measure(Self.noise(amplitude: Float(pow(10, -60.0 / 20))))
-        #expect(level.peakDBFS <= -60 && level.peakDBFS > -61)
+        #expect(LevelMath.dbfs(level.peak) <= -60 && LevelMath.dbfs(level.peak) > -61)
         #expect(!level.isSilent())
         #expect(level.isSilent(threshold: 0.01))
     }
@@ -68,7 +68,7 @@ struct LevelMathTests {
     func fullScaleInt16() {
         let level = Self.measure([Int16.min, Int16.max, 0, Int16.min])
         #expect(level.peak == 1)
-        #expect(level.peakDBFS == 0)
+        #expect(LevelMath.dbfs(level.peak) == 0)
     }
 
     @Test("non-interleaved channel buffers measure the same as one interleaved buffer")
