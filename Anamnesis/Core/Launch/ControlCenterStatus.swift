@@ -61,5 +61,6 @@ final class ControlCenterStatus {
             }
         }
         if state != previous { log.notice("control status \(previous) → \(state)") }
+        AppTips.controlStatusChanged(state)
     }
 }
