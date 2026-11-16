@@ -3,22 +3,25 @@ import SwiftData
 import SwiftUI
 import UIKit
 
-/// Saved poems (spec 012, PRD M6; spec 015 R4; spec 016 R3/R7): one compact card per poem (title, poet, one line),
-/// search as you type, sort and poet chips. A card opens its poem with a zoom.
+/// Saved transcripts (spec 012, PRD M6; spec 015 R4; spec 016 R3/R7; spec 020): one compact card each (title,
+/// speaker, one line), search as you type, sort and speaker chips. A card opens its transcript with a zoom. **+**
+/// writes one by hand (spec 020 R9). Stored as `Poem`; the field `poet` is shown as *Speaker*.
 struct LibraryView: View {
-    /// Switches to the Listen tab from the empty state.
+    /// Switches to the Transcribe tab from the empty state.
     var startListening: () -> Void = {}
     @State private var filter = LibraryFilter()
     @State private var path: [Poem] = []
-    /// All poems, for the filter menus and the "no poems yet" state.
+    /// All transcripts, for the filter menus and the "nothing yet" state.
     @Query private var allPoems: [Poem]
     @Namespace private var zoom
+    /// A hand-written transcript being composed; it reaches the store only when saved.
+    @State private var composing: Poem?
 
     var body: some View {
         NavigationStack(path: $path) {
             Group {
                 if allPoems.isEmpty {
-                    EmptyLibraryView(startListening: startListening)
+                    EmptyLibraryView(startListening: startListening) { composing = Poem(body: "") }
                 } else {
                     // `filter` is passed by value on purpose: reading it here re-creates the list, and with it the
                     // store query, each time the search or a chip changes. A binding alone would keep the old query.
@@ -33,7 +36,13 @@ struct LibraryView: View {
                 PoemDetailView(poem: poem)
                     .navigationTransition(.zoom(sourceID: poem.id, in: zoom))
             }
-            .searchable(text: $filter.searchText, prompt: "Words, titles, poets")
+            .searchable(text: $filter.searchText, prompt: "Words, titles, speakers")
+            .toolbar {
+                ToolbarItem(placement: .primaryAction) {
+                    Button("New transcript", systemImage: "square.and.pencil") { composing = Poem(body: "") }
+                }
+            }
+            .sheet(item: $composing) { PoemEditorView(newPoem: $0) }
         }
     }
 }
@@ -69,7 +78,7 @@ private struct PoemListView: View {
                 .listRowInsets(EdgeInsets(top: 4, leading: 0, bottom: 8, trailing: 0))
                 .listRowBackground(Color.clear)
                 .listRowSeparator(.hidden)
-            Eyebrow(poems.count == 1 ? "1 poem" : "\(poems.count) poems").cardRow()
+            Eyebrow(poems.count == 1 ? "1 transcript" : "\(poems.count) transcripts").cardRow()
             if let errorText { ErrorLine(errorText).cardRow() }
             ForEach(poems) { poem in
                 Button { open(poem) } label: {
@@ -77,7 +86,7 @@ private struct PoemListView: View {
                 }
                 .buttonStyle(CardButtonStyle())
                 .matchedTransitionSource(id: poem.id, in: zoom)
-                .accessibilityHint("Opens the poem")
+                .accessibilityHint("Opens the transcript")
                 .cardRow()
                 .swipeActions {
                     Button("Delete", systemImage: "trash") { pendingDelete = poem }.tint(Theme.danger)
@@ -97,18 +106,19 @@ private struct PoemListView: View {
         .overlay {
             if poems.isEmpty {
                 if filter.query.isEmpty {
-                    ContentUnavailableView("No matching poems", systemImage: "line.3.horizontal.decrease.circle",
-                                           description: Text("No poem by this poet matches."))
+                    ContentUnavailableView("No matching transcripts",
+                                           systemImage: "line.3.horizontal.decrease.circle",
+                                           description: Text("Nothing by this speaker matches."))
                 } else {
                     ContentUnavailableView.search(text: filter.query)
                 }
             }
         }
-        .confirmationDialog("Delete this poem?", isPresented: Binding(
+        .confirmationDialog("Delete this transcript?", isPresented: Binding(
             get: { pendingDelete != nil }, set: { if !$0 { pendingDelete = nil } }), titleVisibility: .visible) {
-            Button("Delete poem", role: .destructive) { deletePending() }
+            Button("Delete transcript", role: .destructive) { deletePending() }
         } message: {
-            Text("The poem is removed from your library. This cannot be undone.")
+            Text("The transcript is removed from your library. This cannot be undone.")
         }
     }
 
@@ -126,7 +136,7 @@ private struct PoemListView: View {
     }
 }
 
-/// Sort and poet as chips that open menus; a filled chip is an active filter.
+/// Sort and speaker as chips that open menus; a filled chip is an active filter.
 private struct LibraryFilterBar: View {
     @Binding var filter: LibraryFilter
     let allPoems: [Poem]
@@ -139,19 +149,19 @@ private struct LibraryFilterBar: View {
                     Picker("Sort", selection: $filter.sort) {
                         Label("Newest", systemImage: "clock").tag(LibrarySort.newest)
                         Label("Title", systemImage: "textformat").tag(LibrarySort.title)
-                        Label("Poet", systemImage: "person").tag(LibrarySort.poet)
+                        Label("Speaker", systemImage: "person").tag(LibrarySort.poet)
                     }
                 } label: {
                     chip(sortName, systemImage: "arrow.up.arrow.down", active: false)
                 }
                 if !poets.isEmpty {
                     Menu {
-                        Picker("Poet", selection: $filter.poet) {
-                            Text("All poets").tag(String?.none)
+                        Picker("Speaker", selection: $filter.poet) {
+                            Text("All speakers").tag(String?.none)
                             ForEach(poets, id: \.self) { Text($0).tag(Optional($0)) }
                         }
                     } label: {
-                        chip(filter.poet ?? "Poet", systemImage: "person", active: filter.poet != nil)
+                        chip(filter.poet ?? "Speaker", systemImage: "person", active: filter.poet != nil)
                     }
                 }
                 if filter.poet != nil {
@@ -169,7 +179,7 @@ private struct LibraryFilterBar: View {
         switch filter.sort {
         case .newest: "Newest"
         case .title: "Title"
-        case .poet: "Poet A–Z"
+        case .poet: "Speaker A–Z"
         }
     }
 
@@ -187,7 +197,7 @@ private struct LibraryFilterBar: View {
     }
 }
 
-/// A poem in the library (spec 016 R7): title, poet, and one line of the poem, nothing else.
+/// A transcript in the library (spec 016 R7): title, speaker, and one line of it, nothing else.
 private struct PoemCard: View {
     let poem: Poem
 
@@ -213,7 +223,7 @@ private struct PoemCard: View {
         .accessibilityElement(children: .combine)
     }
 
-    /// One line of the poem that is not already the title: the first, or the second when the first is the title.
+    /// One line of the transcript that is not already the title: the first, or the second when the first is the title.
     private var line: String? {
         let lines = poem.body.split(whereSeparator: \.isNewline)
             .lazy
@@ -225,19 +235,22 @@ private struct PoemCard: View {
 
 private struct EmptyLibraryView: View {
     let startListening: () -> Void
+    let write: () -> Void
 
     var body: some View {
         ContentUnavailableView {
             Label {
-                Text("Your poems will live here").font(Theme.display(.title2))
+                Text("Your transcripts will live here").font(Theme.display(.title2))
             } icon: {
                 Image(systemName: "book.closed").foregroundStyle(Theme.ember)
             }
         } description: {
-            Text("Transcribe a reel and every poem you hear lands here, ready to read, edit and share.")
+            Text("Transcribe your media and everything said lands here, ready to read, edit and share.")
         } actions: {
-            Button("Start listening", systemImage: "waveform", action: startListening)
+            Button("Start transcribing", systemImage: "waveform", action: startListening)
                 .buttonStyle(ProminentButtonStyle())
+            Button("Write one", systemImage: "square.and.pencil", action: write)
+                .buttonStyle(QuietButtonStyle())
         }
     }
 }
