@@ -1,7 +1,7 @@
 import SwiftUI
 
-/// Settings (spec 013; restructured in spec 016 R10–R12): the brand row (opens About), two square tiles for the guide
-/// and the *Capture poem* control, then App settings, Privacy and Terms of Use.
+/// Settings (spec 013; restructured in spec 016 R10–R12): the brand row (opens About), two cards for the guide and
+/// the *Transcribe* control, then App settings, Privacy and Terms of Use.
 struct SettingsView: View {
     @Environment(AppEnvironment.self) private var environment
     @State private var showsGuide = false
@@ -15,9 +15,12 @@ struct SettingsView: View {
                 }
                 .listRowBackground(Theme.surface)
 
-                tiles
-                    .listRowInsets(EdgeInsets())
-                    .listRowBackground(Color.clear)
+                Section {
+                    tiles
+                }
+                .listRowInsets(EdgeInsets())
+                .listRowBackground(Color.clear)
+                .listSectionSpacing(16)
 
                 Section {
                     NavigationLink { AppSettingsView() } label: {
@@ -55,23 +58,24 @@ struct SettingsView: View {
         .accessibilityHint("About Anamnesis")
     }
 
-    /// Spec 016 R10: two squares side by side under the app name.
+    /// Spec 016 R10: two cards side by side under the app name, as tall as the taller one's text.
     private var tiles: some View {
         let added = environment.controlCenter.isAdded
-        return HStack(spacing: 12) {
-            SquareTile(title: "How it works", detail: "The three steps, again", systemImage: "sparkles",
+        return HStack(alignment: .top, spacing: 12) {
+            ActionTile(title: "How it works", detail: "The three steps, again", systemImage: "sparkles",
                        tint: Theme.ember) { showsGuide = true }
-            SquareTile(title: "Capture poem", detail: added ? "In Control Center" : "Add to Control Center",
+            ActionTile(title: "Control Center",
+                       detail: added ? "Transcribe is ready to tap" : "Add Transcribe in a few taps",
                        systemImage: added ? "checkmark.circle.fill" : "switch.2",
                        tint: added ? Theme.sage : Theme.ember) { showsControlSetup = true }
         }
-        .frame(maxWidth: 520)
-        .frame(maxWidth: .infinity)
+        .fixedSize(horizontal: false, vertical: true)
     }
 }
 
-/// A square button: icon top-left, title and a short status bottom-left.
-private struct SquareTile: View {
+/// A card button: icon badge and a chevron across the top, then the title and a short status. Fills the height its
+/// row gives it, so two side by side match.
+private struct ActionTile: View {
     let title: String
     let detail: String
     let systemImage: String
@@ -80,29 +84,36 @@ private struct SquareTile: View {
 
     var body: some View {
         Button(action: action) {
-            // A square base with the content laid over it, so the tile stays square at any width.
-            Color.clear
-                .aspectRatio(1, contentMode: .fit)
-                .overlay(alignment: .topLeading) {
-                    VStack(alignment: .leading, spacing: 0) {
-                        Image(systemName: systemImage)
-                            .font(.title2.weight(.semibold))
-                            .foregroundStyle(tint)
-                            .frame(width: 48, height: 48)
-                            .background(tint.opacity(0.13), in: .rect(cornerRadius: 14, style: .continuous))
-                            .contentTransition(.symbolEffect(.replace))
-                        Spacer(minLength: 8)
-                        Text(title).font(.headline).foregroundStyle(Theme.ink)
-                        Text(detail).font(.footnote).foregroundStyle(Theme.inkSecondary).lineLimit(2)
-                    }
-                    .padding(16)
-                    .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
+            VStack(alignment: .leading, spacing: 14) {
+                HStack(alignment: .top) {
+                    Image(systemName: systemImage)
+                        .font(.title3.weight(.semibold))
+                        .foregroundStyle(tint)
+                        .frame(width: 42, height: 42)
+                        .background(tint.opacity(0.13), in: .rect(cornerRadius: 12, style: .continuous))
+                        .contentTransition(.symbolEffect(.replace))
+                    Spacer(minLength: 8)
+                    Image(systemName: "chevron.right")
+                        .font(.footnote.weight(.semibold))
+                        .foregroundStyle(Theme.inkSecondary.opacity(0.6))
+                        .padding(.top, 4)
                 }
-                .background(Theme.surface, in: .rect(cornerRadius: Theme.cornerRadius, style: .continuous))
-                .overlay {
-                    RoundedRectangle(cornerRadius: Theme.cornerRadius, style: .continuous)
-                        .strokeBorder(Theme.hairline, lineWidth: 0.5)
+                Spacer(minLength: 0)
+                VStack(alignment: .leading, spacing: 3) {
+                    Text(title).font(.headline).foregroundStyle(Theme.ink)
+                    Text(detail).font(.footnote).foregroundStyle(Theme.inkSecondary)
+                        .fixedSize(horizontal: false, vertical: true)
                 }
+                .multilineTextAlignment(.leading)
+            }
+            .padding(16)
+            .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
+            .background(Theme.surface, in: .rect(cornerRadius: Theme.cornerRadius, style: .continuous))
+            .overlay {
+                RoundedRectangle(cornerRadius: Theme.cornerRadius, style: .continuous)
+                    .strokeBorder(Theme.hairline, lineWidth: 0.5)
+            }
+            .contentShape(.rect(cornerRadius: Theme.cornerRadius, style: .continuous))
         }
         .buttonStyle(CardButtonStyle())
         .accessibilityElement(children: .combine)
