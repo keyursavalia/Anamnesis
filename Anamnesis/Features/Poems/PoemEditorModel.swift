@@ -4,8 +4,10 @@ import Observation
 import SwiftData
 import SwiftUI
 
-/// The editor's state for one poem (spec 011): a draft, the body for the rich `TextEditor` (needed for the cursor
-/// that *Split here* uses), and undo/redo snapshots. Nothing reaches the store until `save` or `split`.
+/// The editor's state for one transcript (spec 011): a draft, the body for the rich `TextEditor` (needed for the
+/// cursor that *Split here* uses), and undo/redo snapshots. Nothing reaches the store until `save` or `split`. A
+/// hand-written one (spec 020 R9) starts outside the store and is inserted on its first save or split, so Cancel
+/// leaves nothing behind.
 @Observable
 final class PoemEditorModel {
     private(set) var poem: Poem
@@ -16,9 +18,12 @@ final class PoemEditorModel {
     var text: AttributedString
     var selection = AttributedTextSelection()
     private(set) var history: EditHistory<PoemDraft>
+    /// Not in the store yet (a hand-written transcript before its first save).
+    private(set) var isNew: Bool
 
-    init(poem: Poem) {
+    init(poem: Poem, isNew: Bool = false) {
         self.poem = poem
+        self.isNew = isNew
         let draft = PoemDraft(poem: poem)
         original = draft
         self.draft = draft
@@ -28,6 +33,9 @@ final class PoemEditorModel {
     }
 
     var isDirty: Bool { draft != original }
+
+    /// A new transcript needs some text before it can be saved; an existing one can always be saved.
+    var canSave: Bool { !isNew || !draft.body.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty }
 
     // MARK: - Changes
 
@@ -54,6 +62,7 @@ final class PoemEditorModel {
 
     func save(in context: ModelContext) throws {
         draft.apply(to: poem)
+        insertIfNew(in: context)
         try context.save()
         original = PoemDraft(poem: poem)
         draft = original
@@ -72,12 +81,19 @@ final class PoemEditorModel {
     func split(in context: ModelContext) throws {
         guard let offset = cursorOffset else { return }
         draft.apply(to: poem)
+        insertIfNew(in: context)
         guard let other = poem.splitOff(at: offset, in: context) else { return }
         try context.save()
         load(other)
     }
 
     // MARK: - Private
+
+    private func insertIfNew(in context: ModelContext) {
+        guard isNew else { return }
+        context.insert(poem)
+        isNew = false
+    }
 
     private func load(_ poem: Poem) {
         self.poem = poem
