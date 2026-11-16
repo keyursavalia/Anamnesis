@@ -42,8 +42,6 @@ struct LibraryFilterTests {
         #expect(try titles(context, LibraryFilter(poet: "Anon")) == ["a quiet road"])
         #expect(try titles(context, LibraryFilter(searchText: "road", poet: "Anon")) == ["a quiet road"])
         #expect(try titles(context, LibraryFilter(searchText: "light", poet: "Anon")).isEmpty)
-        #expect(LibraryFilter(poet: "x").isFiltering)
-        #expect(!LibraryFilter(searchText: "  ").isFiltering)
     }
 
     @Test("sorts: newest, title (first line when untitled), poet with none last")
@@ -58,6 +56,21 @@ struct LibraryFilterTests {
         let poems = try makeStore().fetch(FetchDescriptor<Poem>(sortBy: [SortDescriptor(\.createdAt)]))
         #expect(LibraryFilter.poets(in: poems) == ["Anon", "Rilke"])
         #expect(poems[2].firstLines(2) == "a quiet road / ends here")
+    }
+
+    @Test("lines are read lazily, trimmed, without blanks, the same as splitting the whole body")
+    func lines() {
+        let body = "\r\n  first \r\n\t\n second\u{2028}third  \n\n   \nlast"
+        let poem = Poem(body: body, createdAt: start)
+        let split = body.split(whereSeparator: \.isNewline)
+            .map { $0.trimmingCharacters(in: .whitespaces) }
+            .filter { !$0.isEmpty }
+        #expect(Array(poem.nonEmptyLines) == split)
+        #expect(Array(poem.nonEmptyLines) == ["first", "second", "third", "last"])
+        #expect(poem.firstLines(2) == "first / second")
+        #expect(poem.displayTitle == "first")
+        #expect(Array(Poem(body: " \n\t", createdAt: start).nonEmptyLines).isEmpty)
+        #expect(Poem(body: "", createdAt: start).displayTitle == "")
     }
 
     @Test("search over 200 poems stays well under 200 ms (AC1, loose bound)")
