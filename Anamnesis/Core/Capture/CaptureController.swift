@@ -227,6 +227,12 @@ final class CaptureController {
         write(record, to: session)
     }
 
+    /// Waits for the `capture.json` writes queued so far. A library sync run after `.stopped` waits for it, so the
+    /// row gets its stop time and reason at once rather than at the next refresh (review follow-up 4).
+    func recordWritesFinished() async {
+        await lastRecordWrite?.value
+    }
+
     private func write(_ record: CaptureRecord, to session: SpoolSession) {
         let previous = lastRecordWrite
         let log = log
