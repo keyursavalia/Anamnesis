@@ -1,9 +1,9 @@
 import AnamnesisKit
 import SwiftUI
 
-/// One capture on the Listen screen (spec 015 R2; spec 016 R1): when, how long, the first poem heard, and where it
-/// stands. A finished capture's poems are already in the library; a failed one offers its fix right here, since
-/// there is no review screen any more. The list computes `status` once per row and passes it in.
+/// One recording on the Transcribe screen (spec 015 R2; spec 016 R1): when, how long, the first transcript, and
+/// where it stands. A finished recording's transcripts are already in the library; a failed one offers its fix right
+/// here, since there is no review screen any more. The list computes `status` once per row and passes it in.
 struct SessionCard: View {
     @Environment(AppEnvironment.self) private var environment
     let session: CaptureSession
@@ -49,7 +49,7 @@ struct SessionCard: View {
         .contentShape(.rect(cornerRadius: Theme.cornerRadius))
     }
 
-    /// Finished with poems: tapping the card goes to the library, where they are.
+    /// Finished with transcripts: tapping the card goes to the library, where they are.
     var opensLibrary: Bool { status.state == .transcribed && session.keptPoemCount > 0 }
 
     @ViewBuilder
@@ -58,7 +58,11 @@ struct SessionCard: View {
         case .capturing:
             Pill(text: "Listening", systemImage: "waveform", filled: true)
         case .saved:
-            Pill(text: "Waiting to transcribe", systemImage: "hourglass", tint: Theme.inkSecondary)
+            if environment.transcripts?.isWaitingForModel == true {
+                Pill(text: "Waiting for speech model", systemImage: "arrow.down.circle", tint: Theme.inkSecondary)
+            } else {
+                Pill(text: "Waiting to transcribe", systemImage: "hourglass", tint: Theme.inkSecondary)
+            }
         case .transcribing:
             Pill(text: status.progress.map { "Transcribing \(Int($0 * 100))%" } ?? "Transcribing",
                  systemImage: "text.bubble")
@@ -69,9 +73,9 @@ struct SessionCard: View {
             if session.moments.isEmpty {
                 Pill(text: "No speech heard", systemImage: "speaker.slash", tint: Theme.inkSecondary)
             } else if kept == 0 {
-                Pill(text: "No poems kept", systemImage: "books.vertical", tint: Theme.inkSecondary)
+                Pill(text: "Nothing kept", systemImage: "books.vertical", tint: Theme.inkSecondary)
             } else {
-                Pill(text: kept == 1 ? "1 poem in your library" : "\(kept) poems in your library",
+                Pill(text: kept == 1 ? "1 transcript in your library" : "\(kept) transcripts in your library",
                      systemImage: "checkmark", tint: Theme.sage)
             }
         }
