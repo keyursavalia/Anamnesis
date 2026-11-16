@@ -234,7 +234,7 @@ private struct EmptyLibraryView: View {
                 Image(systemName: "book.closed").foregroundStyle(Theme.ember)
             }
         } description: {
-            Text("Capture a reel and every poem you hear lands here, ready to read, edit and share.")
+            Text("Transcribe a reel and every poem you hear lands here, ready to read, edit and share.")
         } actions: {
             Button("Start listening", systemImage: "waveform", action: startListening)
                 .buttonStyle(ProminentButtonStyle())
