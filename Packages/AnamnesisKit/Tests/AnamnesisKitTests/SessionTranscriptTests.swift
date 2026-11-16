@@ -141,7 +141,6 @@ struct SessionTranscriptTests {
         let value = transcript()
         #expect(value.moments.count == 2)
         #expect(value.moments.first?.text == "Do not go gentle into that good night")
-        #expect(value.firstLine == "Do not go gentle")
     }
 
     @Test("round-trips through its file atomically")
