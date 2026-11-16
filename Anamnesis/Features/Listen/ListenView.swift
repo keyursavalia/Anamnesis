@@ -16,9 +16,17 @@ struct ListenView: View {
     #if DEBUG
     @State private var metricsSession: CaptureSession?
     #endif
-    /// Newest first (spec 009: the store is the list's source).
-    @Query(sort: \CaptureSession.startedAt, order: .reverse) private var stored: [CaptureSession]
+    /// Recordings not yet transcribed, newest first (spec 009: the store is the list's source). Transcribed ones are
+    /// never listed, so they are not fetched: a status per session ever recorded was rebuilt on each progress tick.
+    @Query private var unfinished: [CaptureSession]
     @Query private var transcripts: [Poem]
+
+    init(showLibrary: @escaping () -> Void = {}) {
+        self.showLibrary = showLibrary
+        let transcribed = StoredSessionState.transcribed.rawValue
+        _unfinished = Query(filter: #Predicate<CaptureSession> { $0.stateRaw != transcribed },
+                            sort: \.startedAt, order: .reverse)
+    }
 
     var body: some View {
         NavigationStack {
@@ -37,7 +45,7 @@ struct ListenView: View {
             .navigationTitle("Transcribe")
             .navigationBarTitleDisplayMode(.inline)
             .refreshable { await environment.refreshSessions() }
-            .animation(.smooth, value: stored.map(\.spoolSessionID))
+            .animation(.smooth, value: unfinished.map(\.spoolSessionID))
             .confirmationDialog("Delete this recording?", isPresented: Binding(
                 get: { pendingDelete != nil }, set: { if !$0 { pendingDelete = nil } }), titleVisibility: .visible) {
                 Button("Delete recording", role: .destructive) { deletePending() }
@@ -82,11 +90,11 @@ struct ListenView: View {
     /// Recordings still on their way, or failed. Each status is computed once, from one manifest lookup.
     @ViewBuilder
     private var inProgress: some View {
-        let manifests = CaptureSessionStatus.manifests(in: environment)
-        let rows = stored.compactMap { session -> (session: CaptureSession, status: CaptureSessionStatus)? in
+        let manifests = unfinished.isEmpty ? [:] : CaptureSessionStatus.manifests(in: environment)
+        let rows = unfinished.compactMap { session -> (session: CaptureSession, status: CaptureSessionStatus)? in
             let status = CaptureSessionStatus(session: session, environment: environment,
                                               manifest: manifests[session.spoolSessionID])
-            return status.needsAttention(session) ? (session, status) : nil
+            return status.needsAttention ? (session, status) : nil
         }
         if !rows.isEmpty {
             Eyebrow("In progress").padding(.top, 14).cardRow()
