@@ -1,8 +1,8 @@
 import AnamnesisKit
 import SwiftUI
 
-/// The image a poem is shared as (spec 016 R6): title, poet, the verse, and the Anamnesis mark and name at the
-/// foot. Drawn at 360 pt wide and rendered at 3× (1080 px, the width Instagram and most messengers keep); at least
+/// The image a transcript is shared as (spec 016 R6): title, speaker, the text, and the Anamnesis mark and name at
+/// the foot. Drawn at 360 pt wide and rendered at 3× (1080 px, the width Instagram and most messengers keep); at least
 /// 4:5 tall, longer for longer poems. Colours are fixed per style so the card looks the same in light and dark mode.
 struct PoemShareCard: View {
     enum Style: String, CaseIterable, Identifiable {
@@ -23,7 +23,7 @@ struct PoemShareCard: View {
     let style: Style
 
     static let width: CGFloat = 360
-    /// Beyond this the verse ends in "…"; a card is a taste of the poem, not a scroll.
+    /// Beyond this the text ends in "…"; a card is a taste of the transcript, not a scroll.
     static let maxLines = 30
 
     var body: some View {
@@ -70,14 +70,14 @@ struct PoemShareCard: View {
             AppMark(size: 28)
                 .overlay {
                     // On the ember card the ember tile needs an edge to stand out.
-                    RoundedRectangle(cornerRadius: 28 * 0.27, style: .continuous)
+                    RoundedRectangle(cornerRadius: 28 * 0.225, style: .continuous)
                         .strokeBorder(.white.opacity(style == .ember ? 0.5 : 0), lineWidth: 1)
                 }
             VStack(alignment: .leading, spacing: 0) {
                 Text("Anamnesis")
                     .font(.system(size: 15, weight: .semibold, design: .serif))
                     .foregroundStyle(palette.ink)
-                Text("Keep the poems you hear")
+                Text("Transcribe anything you hear")
                     .font(.system(size: 11, design: .serif))
                     .italic()
                     .foregroundStyle(palette.secondary)
