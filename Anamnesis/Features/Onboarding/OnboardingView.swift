@@ -123,13 +123,13 @@ private struct CapturePage: View {
             ControlCenterMock(animates: animates && isActive)
                 .frame(height: 186)
         } content: {
-            Text("Capture in one swipe.")
+            Text("Transcribe in one swipe.")
                 .font(.system(.largeTitle, design: .serif, weight: .semibold))
                 .foregroundStyle(Night.cream)
                 .multilineTextAlignment(.center)
                 .reveal(isActive, delay: 0.1)
             Text("""
-                Add **Capture poem** to Control Center. When a poem starts, swipe down and tap it. You never \
+                Add **Transcribe** to Control Center. When a poem starts, swipe down and tap it. You never \
                 leave TikTok or Instagram, and you never miss the first line.
                 """)
                 .font(.body)
@@ -138,7 +138,7 @@ private struct CapturePage: View {
                 .lineSpacing(3)
                 .reveal(isActive, delay: 0.25)
             VStack(spacing: 8) {
-                Option(symbol: "switch.2", title: "Capture poem control", detail: "Fastest · from any app",
+                Option(symbol: "switch.2", title: "Transcribe control", detail: "Fastest · from any app",
                        highlighted: true)
                 Option(symbol: "waveform", title: "Or the Listen button", detail: "Open Anamnesis, tap the orb",
                        highlighted: false)
