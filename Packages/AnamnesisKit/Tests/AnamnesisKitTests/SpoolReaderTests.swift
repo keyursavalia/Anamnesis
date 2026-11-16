@@ -23,8 +23,10 @@ struct SpoolReaderTests {
     func readTimeline(_ reader: SpoolReader, capacity: AVAudioFrameCount) throws -> ([Int16], [Double]) {
         var samples: [Int16] = []
         var offsets: [Double] = []
-        try reader.forEachBuffer(frameCapacity: capacity) { buffer, offset in
-            offsets.append(offset)
+        var cursor = reader.makeCursor()
+        let buffer = try #require(AVAudioPCMBuffer(pcmFormat: cursor.processingFormat, frameCapacity: capacity))
+        while let chunk = try cursor.read(into: buffer) {
+            offsets.append(chunk.startOffsetSec)
             samples += UnsafeBufferPointer(start: buffer.int16ChannelData?[0], count: Int(buffer.frameLength))
         }
         return (samples, offsets)
