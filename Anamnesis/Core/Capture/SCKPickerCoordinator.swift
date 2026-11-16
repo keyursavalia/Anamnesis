@@ -43,13 +43,6 @@ final class SCKPickerCoordinator: NSObject, SCContentSharingPickerObserver {
         picker.isActive = false
     }
 
-    func deactivate() {
-        guard isRegistered else { return }
-        picker.isActive = false
-        picker.remove(self)
-        isRegistered = false
-    }
-
     /// `settle`: wait between activating and presenting (H3: presenting milliseconds after activation failed on
     /// a cold launch).
     func present(_ style: Style, settle: Duration = .zero) {
