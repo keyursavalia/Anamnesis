@@ -220,8 +220,10 @@ final class TranscriptionQueue {
 
     private func handleFailure(_ error: any Error, id: String) async {
         let mapped = TranscriptionError(error)
-        if mapped == .cancelled, cancelledForCapture || jobs[id] == nil {
-            // Paused for a capture, or deleted: not a failure.
+        // Deleted (its entry cleared): not a failure, whatever the error. A delete that lands during the
+        // non-cancellable save fails the write into the removed folder, not the stream (review follow-up 5).
+        // Paused for a capture: the cancel is not a failure either.
+        if jobs[id] == nil || (mapped == .cancelled && cancelledForCapture) {
             jobs[id] = nil
             return
         }
