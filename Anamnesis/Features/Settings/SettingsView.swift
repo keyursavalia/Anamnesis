@@ -49,7 +49,7 @@ struct SettingsView: View {
             AppMark(size: 56)
             VStack(alignment: .leading, spacing: 2) {
                 Text("Anamnesis").font(Theme.display(.title2)).foregroundStyle(Theme.ink)
-                Text("Keep the poems you hear.").font(Theme.verse(.subheadline)).italic()
+                Text("Transcribe anything you hear.").font(Theme.verse(.subheadline)).italic()
                     .foregroundStyle(Theme.inkSecondary)
             }
         }
@@ -62,7 +62,7 @@ struct SettingsView: View {
     private var tiles: some View {
         let added = environment.controlCenter.isAdded
         return HStack(alignment: .top, spacing: 12) {
-            ActionTile(title: "How it works", detail: "The three steps, again", systemImage: "sparkles",
+            ActionTile(title: "How it works", detail: "The welcome, again", systemImage: "sparkles",
                        tint: Theme.ember) { showsGuide = true }
             ActionTile(title: "Control Center",
                        detail: added ? "Transcribe is ready to tap" : "Add Transcribe in a few taps",
