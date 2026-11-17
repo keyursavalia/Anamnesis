@@ -79,7 +79,7 @@ struct OpenCaptureIntent: AppIntent {
     static let description = IntentDescription("Opens Anamnesis on the Transcribe screen, ready to start.")
     static let supportedModes: IntentModes = .foreground(.immediate)
 
-    @Parameter(title: "Present picker", default: false)
+    @Parameter(title: "Start transcription", default: false)
     var autoPresent: Bool
 
     init() {}
