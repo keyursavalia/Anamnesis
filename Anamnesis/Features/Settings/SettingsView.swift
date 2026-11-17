@@ -6,6 +6,9 @@ struct SettingsView: View {
     @Environment(AppEnvironment.self) private var environment
     @State private var showsGuide = false
     @State private var showsControlSetup = false
+    #if DEBUG
+    @State private var showsScreenshotPrivacy = false
+    #endif
 
     var body: some View {
         NavigationStack {
@@ -41,6 +44,11 @@ struct SettingsView: View {
             .sheet(isPresented: $showsGuide) { OnboardingView { showsGuide = false } }
             .sheet(isPresented: $showsControlSetup) { ControlSetupSheet() }
             .task { await environment.controlCenter.refresh() }
+            #if DEBUG
+            // SPIKE: App Store screenshots.
+            .navigationDestination(isPresented: $showsScreenshotPrivacy) { PrivacyView() }
+            .task { showsScreenshotPrivacy = ScreenshotScene.current == .privacy }
+            #endif
         }
     }
 
