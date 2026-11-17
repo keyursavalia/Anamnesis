@@ -4,8 +4,11 @@ import SwiftUI
 // the owner reviews it before release (RISKS R-09). Keep it in step with CLAUDE.md invariants 1–2.
 
 struct PrivacyView: View {
+    /// Published contact for privacy questions (owner, 2026-11-17). Same address as the hosted policy.
+    static let contactEmail = "contact@keyursavalia.com"
+
     var body: some View {
-        LegalPage(title: "Privacy", summary: LegalSummary(
+        LegalPage(title: "Privacy", effectiveDate: "17 November 2026", summary: LegalSummary(
             symbol: "hand.raised.fill", tint: Theme.sage, title: "Your data stays with you",
             text: "Anamnesis has no account, no servers and no analytics. Nothing you record or keep is sent "
                 + "to us or anyone else."), sections: Self.sections)
@@ -41,7 +44,11 @@ struct PrivacyView: View {
         LegalSection("Deleting your data", """
             Delete a transcript from the Library or a recording from Transcribe at any time. Settings → App \
             settings → Delete all data removes every transcript, recording and the app's log. Deleting the app \
-            removes everything too.
+            removes everything too. We hold no copy of your data, so there is nothing to request from us: \
+            deleting it on your device deletes it everywhere except your own device backups.
+            """),
+        LegalSection("Contact", """
+            Questions about privacy or this policy: \(contactEmail).
             """),
         LegalSection("Changes", """
             If this policy changes, the new version will be in the app with its effective date.
@@ -51,7 +58,7 @@ struct PrivacyView: View {
 
 struct TermsView: View {
     var body: some View {
-        LegalPage(title: "Terms of Use", summary: LegalSummary(
+        LegalPage(title: "Terms of Use", effectiveDate: "15 November 2026", summary: LegalSummary(
             symbol: "doc.text.fill", tint: Theme.ember, title: "The short version",
             text: "Anamnesis is a personal notebook for the words you hear. Keep them for yourself, credit the "
                 + "people who said them when you share, and respect their rights."), sections: Self.sections)
@@ -116,10 +123,9 @@ struct LegalSummary {
 /// A readable legal page: a summary card, then numbered sections, then the effective date.
 private struct LegalPage: View {
     let title: String
+    let effectiveDate: String
     let summary: LegalSummary
     let sections: [LegalSection]
-
-    static let effectiveDate = "15 November 2026"
 
     var body: some View {
         ScrollView {
@@ -151,7 +157,7 @@ private struct LegalPage: View {
                             .fixedSize(horizontal: false, vertical: true)
                     }
                 }
-                Text("Effective \(Self.effectiveDate)")
+                Text("Effective \(effectiveDate)")
                     .font(.footnote)
                     .foregroundStyle(Theme.inkSecondary)
                     .frame(maxWidth: .infinity)
