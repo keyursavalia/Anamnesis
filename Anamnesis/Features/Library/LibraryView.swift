@@ -48,6 +48,14 @@ struct LibraryView: View {
         // *Delete all data* removed every transcript, including one left open here; drop it from the stack so
         // returning to this tab never shows (or touches) a deleted model.
         .onChange(of: environment.dataDeletedAt) { path.removeAll() }
+        #if DEBUG
+        // SPIKE: App Store screenshots; acts once the seeded transcripts arrive.
+        .onChange(of: allPoems.count, initial: true) {
+            guard ScreenshotScene.current?.opensHero == true, path.isEmpty,
+                  let hero = allPoems.first(where: { $0.title == ScreenshotScene.heroTitle }) else { return }
+            path = [hero]
+        }
+        #endif
     }
 }
 
