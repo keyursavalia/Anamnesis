@@ -38,8 +38,11 @@ struct RootView: View {
                 SettingsView()
             }
             #if DEBUG
-            Tab("Lab", systemImage: "flask", value: TabID.lab) {
-                LabHomeView()
+            // Hidden in App Store screenshots: Release has no Lab.
+            if ScreenshotScene.current == nil {
+                Tab("Lab", systemImage: "flask", value: TabID.lab) {
+                    LabHomeView()
+                }
             }
             #endif
         }
@@ -66,6 +69,11 @@ struct RootView: View {
         .onChange(of: environment.launchRequest?.id) {
             guard let request = environment.launchRequest, request.link.rung != .withoutForeground else { return }
             tab = .lab
+        }
+        .task {
+            guard let scene = ScreenshotScene.current else { return }
+            ScreenshotScene.seed(environment.library.container)
+            tab = scene.tab
         }
         #endif
     }
