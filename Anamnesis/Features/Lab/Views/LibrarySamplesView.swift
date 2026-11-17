@@ -14,6 +14,7 @@ struct LibrarySamplesView: View {
     @State private var word = "ember"
     @State private var result: String?
     @State private var sampleCount = 0
+    @State private var screenshotCount = 0
 
     var body: some View {
         List {
@@ -23,6 +24,19 @@ struct LibrarySamplesView: View {
                 Button("Remove sample poems", systemImage: "trash", role: .destructive) { run { try removeSamples() } }
             } footer: {
                 Text("Generated from a word list and marked \"\(Self.marker)\" in the source field.")
+            }
+            Section {
+                LabeledContent("Screenshot transcripts", value: "\(screenshotCount)")
+                Button("Seed screenshot set", systemImage: "camera") {
+                    run { try ScreenshotSeed.replace(in: context) }
+                }
+                Button("Remove screenshot set", systemImage: "trash", role: .destructive) {
+                    run { try ScreenshotSeed.remove(from: context) }
+                }
+            } header: {
+                Text("App Store screenshots")
+            } footer: {
+                Text("Public-domain poems and speeches plus one note of our own. Seeding again replaces the set.")
             }
             Section("Time search (AC1 < 200 ms)") {
                 TextField("Word", text: $word).textInputAutocapitalization(.never)
@@ -95,6 +109,7 @@ struct LibrarySamplesView: View {
         let marker = Self.marker
         let samples = FetchDescriptor<Poem>(predicate: #Predicate { $0.sourceNote == marker })
         sampleCount = (try? context.fetchCount(samples)) ?? 0
+        screenshotCount = ScreenshotSeed.count(in: context)
     }
 }
 #endif
