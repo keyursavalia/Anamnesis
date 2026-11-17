@@ -189,7 +189,7 @@ private struct PrivacyPage: View {
             VStack(spacing: 10) {
                 Option(symbol: "speaker.wave.2.fill", title: "Only what other apps play",
                        detail: "Never your microphone", highlighted: false)
-                Option(symbol: "iphone", title: "Transcribed on this iPhone", detail: "No account, no cloud",
+                Option(symbol: "iphone", title: "Transcribed on this device", detail: "No account, no cloud",
                        highlighted: false)
                 Option(symbol: "trash.fill", title: "Audio is deleted", detail: "Once it has become text",
                        highlighted: false)
