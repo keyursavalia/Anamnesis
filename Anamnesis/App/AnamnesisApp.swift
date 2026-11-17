@@ -11,6 +11,9 @@ struct AnamnesisApp: App {
     init() {
         Theme.applyAppearance()
         AppTips.configure()
+        #if DEBUG
+        ScreenshotScene.prepareLaunch()
+        #endif
     }
 
     var body: some Scene {
