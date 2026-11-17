@@ -51,6 +51,14 @@ struct PoemDetailView: View {
         .sheet(item: $editing) { PoemEditorView(poem: $0) }
         .sheet(isPresented: $sharingCard) { ShareCardSheet(poem: PoemExport(poem: poem)) }
         .sensoryFeedback(.success, trigger: copied)
+        #if DEBUG
+        // SPIKE: App Store screenshots; waits for the push to settle before presenting.
+        .task {
+            guard let scene = ScreenshotScene.current, scene == .editor || scene == .share else { return }
+            try? await Task.sleep(for: .seconds(1))
+            if scene == .editor { editing = poem } else { sharingCard = true }
+        }
+        #endif
         .confirmationDialog("Delete this transcript?", isPresented: $confirmingDelete, titleVisibility: .visible) {
             Button("Delete transcript", role: .destructive) { delete() }
         } message: {
