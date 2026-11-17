@@ -23,6 +23,10 @@ struct ShareCardSheet: View {
             }
             .safeAreaInset(edge: .bottom) { shareButton }
             .paperBackground()
+            #if DEBUG
+            // SPIKE: App Store screenshots are dark, so the card is too.
+            .onAppear { if ScreenshotScene.current == .share { style = .night } }
+            #endif
             .navigationTitle("Share card")
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
