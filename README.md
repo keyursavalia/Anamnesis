@@ -1,11 +1,19 @@
 <p align="center">
-  <img src="SCREENS/icon.png" width="96" alt="Anamnesis app icon" />
+  <a href="https://apps.apple.com/us/app/anamnesis-private-transcriber/id6836080299">
+    <img src="SCREENS/AnamnesisIcon.png" width="140" alt="Anamnesis app icon: a fountain pen writing a sound wave" />
+  </a>
 </p>
 
 <h1 align="center">Anamnesis</h1>
 
 <p align="center">
   A native iOS app that turns whatever is playing on your device into text you keep — transcribed entirely on-device.
+</p>
+
+<p align="center">
+  <a href="https://apps.apple.com/us/app/anamnesis-private-transcriber/id6836080299">
+    <img src="SCREENS/Download_on_the_App_Store_Badge_US-UK_RGB_wht_092917.svg" alt="Download on the App Store" height="54" />
+  </a>
 </p>
 
 <p align="center">
@@ -249,7 +257,6 @@ There are no API keys, no backend and no packages to resolve. Debug builds add a
 
 - **More languages** — the pipeline is locale-driven; the UI and model download currently target English
 - **First line at stop** — show the transcript's opening line in the Live Activity right after a stop
-- **Accessibility pass** — full VoiceOver, Voice Control and largest-text verification across every flow
 - **Spotlight** — index transcripts on-device so they appear in system search
 - **Duplicate detection** — notice when the same words are captured twice
 
